@@ -1,0 +1,601 @@
+In Chrome DevTools, 
+Fetch/XHR is a filter label in the Network panel that groups both XMLHttpRequest (XHR) and Fetch API network requests.
+XMLHttpRequest: A legacy JavaScript API introduced in the late 1990s for asynchronous HTTP requests (AJAX). 
+Fetch API: A modern, Promise-based standard introduced in 2015 that simplifies request handling and supports features like streams and abort controllers. 
+Using this filter allows developers to inspect, debug, and analyze all asynchronous data exchanges between the browser and server in a single view. 
+
+In the context of network diagnostics, recording typically refers to generating an HTTP Archive (HAR) file, which logs all network requests and responses made by a browser while loading a website
+
+py -m pip install requests
+What is Requests?
+
+Remember:
+
+Browser
+   ↓
+Credco API
+
+Requests allows Python to behave like a browser.
+
+So instead of Chrome asking:
+
+Give me PP prices
+
+Python will ask:
+
+
+Give me PP prices
+
+
+
+
+And the server replied:
+
+200
+
+which means:
+
+"Request accepted. Here is the data."
+
+{
+  "product_name":"PP IOCL",
+  "current_price":"135.50"
+}
+
+This is called JSON.
+
+JSON is simply a way computers exchange data.
+
+import requests
+
+means:
+
+"Bring the requests library into my program so I can use its functions."
+
+
+data = response.json()
+
+means:
+
+"Take the JSON text from the response and convert it into Python objects."
+
+
+psycopg2
+
+allows Python to talk to PostgreSQL.
+
+The cursor sends SQL commands to PostgreSQL.
+
+Now Python is running SQL for you.
+
+CREATE TABLE  -> create table
+DROP TABLE    -> destroy table
+
+ON CONFLICT
+
+Think:
+
+If product does not exist
+        ↓
+Insert it
+
+If product already exists
+        ↓
+Update it
+
+
+FastAPI is a Python framework used to create APIs very quickly.
+
+What is Uvicorn?
+
+Think:
+
+FastAPI = Your API Code
+
+Uvicorn = The Server That Runs It
+
+http://127.0.0.1:8000/docs
+
+FastAPI automatically generates a professional API documentation page.
+
+Most beginners' minds are blown the first time they see this.
+
+JSON means:
+
+JavaScript Object Notation
+
+It is simply a text format for storing and sending data.
+
+7. Why JSON?
+
+Because it is:
+
+Easy for humans
+{
+  "name": "Himanshu"
+}
+Easy for machines
+
+Every language can read it:
+
+Python
+JavaScript
+Java
+C#
+Go
+Rust
+
+Everything supports JSON.
+
+Collect rates daily
+↓
+Store automatically
+
+Then you only maintain the scraper if the source website changes.
+
+Before writing a single line of code, spend one evening answering:
+
+Which website(s) will provide the daily rates?
+
+If you find 2–3 websites that consistently publish polymer rates, then you can make the project almost completely self-maintaining.
+
+Without an automatic source, no amount of coding can make the data update itself. The data has to come from somewhere.
+
+how to do web scraping ?
+
+Web scraping means:
+
+A program visits a webpage, reads the HTML, extracts the information you want, and saves it.
+
+For example, if a page contains:
+
+<div class="price">
+PP Raffia: ₹102/kg
+</div>
+
+Your scraper can extract:
+
+PP Raffia = 102
+
+and store it in PostgreSQL.
+
+Step 1: Learn Basic Python
+
+Since you'll likely use Python for scraping:
+
+print("Hello")
+
+Learn:
+
+Variables
+Loops
+Functions
+Lists
+Dictionaries
+
+This can be done in a few days.
+
+Step 2: Learn Requests
+
+Install:
+
+pip install requests
+
+Example:
+
+import requests
+
+url = "https://example.com"
+
+response = requests.get(url)
+
+print(response.text)
+
+This downloads the page HTML.
+
+Step 3: Learn BeautifulSoup
+
+Install:
+
+pip install beautifulsoup4
+
+Example:
+
+from bs4 import BeautifulSoup
+import requests
+
+html = requests.get(url).text
+
+soup = BeautifulSoup(html, "html.parser")
+
+print(soup.title.text)
+
+Now you can find specific elements.
+
+Step 4: Use Browser Inspect
+
+Open Chrome:
+
+Right Click
+Inspect
+Find the price element
+
+Example:
+
+<span class="price">
+102
+</span>
+
+Then:
+
+price = soup.find("span", class_="price").text
+Step 5: Save to Database
+
+After extracting:
+
+price = 102
+
+Store in PostgreSQL:
+
+Material   Price   Date
+PP          102    2026-06-18
+Step 6: Automate
+
+Linux cron:
+
+0 9 * * * python scraper.py
+
+Runs every day at 9 AM.
+
+The flow becomes:
+
+Website
+   ↓
+Python Scraper
+   ↓
+PostgreSQL
+   ↓
+Node.js API
+   ↓
+React Dashboard
+One thing to check first
+
+Before learning scraping, visit the website you want to use and see:
+
+Can you view today's rates without logging in?
+Or does it require an account/payment?
+
+Many business sites (including some polymer-rate services) hide data behind login pages. If the rates are behind authentication or paywalls, scraping becomes more complicated and sometimes may violate the site's terms. If you tell me the exact site you're planning to use, I can explain whether it's likely to be straightforward to scrape or not.
+
+
+Why API > Scraping
+
+Scraping
+
+Website HTML
+    ↓
+Python Scraper
+    ↓
+Extract Text
+
+Breaks when website design changes.
+
+API
+
+Website API
+    ↓
+Your Backend
+    ↓
+Database
+
+Much more stable and professional.
+
+DevTools (Developer Tools) is a toolbox built into browsers like Chrome, Edge, and Firefox that lets developers inspect and debug websites.
+
+The tabs you'll use most for your project
+1. Elements
+
+Shows the HTML and CSS currently on the page.
+
+Example:
+
+<div class="card">
+  PP Reliance
+</div>
+
+You can:
+
+Inspect UI elements
+Test CSS changes live
+See why a component looks wrong
+
+2. Console
+
+Shows JavaScript logs and errors.
+
+Example:
+
+console.log(products);
+
+Output appears here.
+
+If your React app crashes, you'll often see errors like:
+
+ReferenceError: Toaster is not defined
+
+which you recently encountered.
+
+3. Network (VERY IMPORTANT)
+
+This is where you can see API calls.
+
+For your project:
+
+GET /products
+GET /products/1
+GET /products/1/history
+
+will appear here.
+
+You can inspect:
+
+Request URL
+Request method (GET, POST)
+Response data
+Response time
+Status codes
+
+Example:
+
+GET http://127.0.0.1:8000/products
+
+Status: 200 OK
+
+or
+
+Status: 500 Internal Server Error
+
+4. Application
+
+Shows:
+
+Local Storage
+Session Storage
+Cookies
+
+For your project:
+
+polymetric.watchlist
+polymetric.alerts
+
+are stored in Local Storage.
+
+You can view them here.
+
+So Fetch/XHR in DevTools = all API communication between your frontend and backend. That's usually the first place developers look when debugging a web app.
+
+Chrome only shows requests that happened after Network monitoring starts.
+
+A database is like a giant organized notebook:
+
+Data stays there even if:
+
+Computer Restarted
+Program Closed
+Power Off
+
+data stored in RAM (memory).
+
+When the program ends:
+
+Memory Cleared
+
+Everything disappears.
+
+difference between nosql AND SQL
+
+
+
+Finished
+The primary difference between SQL and NoSQL databases lies in their data structure, scalability, and consistency models. 
+
+Core Differences
+SQL databases are relational, storing data in predefined tables with rows and columns.  They require a fixed schema, meaning the structure must be defined before data entry.  In contrast, NoSQL databases are non-relational, utilizing various models like document-based, key-value, graph, or wide-column stores.  They feature a dynamic schema, allowing for the storage of unstructured or semi-structured data without prior definition. 
+
+1. Data Structure and Schema
+SQL databases enforce a rigid structure where data integrity is maintained through strict relationships and constraints. Changing the schema (e.g., adding a column) often requires migration and can cause downtime. NoSQL databases offer schema-on-read flexibility, enabling developers to add new fields to individual records instantly without affecting the entire database, which accelerates development for evolving data models. 
+
+
+SQL vs NoSQL schema flexibility
+
+View all
+2. Scalability and Performance
+SQL systems typically scale vertically, requiring more powerful hardware (CPU, RAM) to handle increased loads, which can become cost-prohibitive at massive scales.  NoSQL systems are designed for horizontal scaling, distributing data across multiple commodity servers.  This makes NoSQL superior for handling massive volumes of data and high-velocity write operations, while SQL generally performs better for complex queries involving joins and transactions on moderate datasets. 
+
+
+SQL vs NoSQL scalability
+
+View all
+3. Consistency Models
+SQL databases prioritize ACID compliance (Atomicity, Consistency, Isolation, Durability), ensuring strong data consistency and reliability for every transaction.  This is critical for financial systems. NoSQL databases often follow the BASE model (Basically Available, Soft state, Eventual consistency), prioritizing availability and partition tolerance over immediate consistency.  This trade-off allows for higher throughput and uptime in distributed systems. 
+
+
+ACID vs BASE database consistency
+
+View all
+Ideal Use Cases
+SQL is the preferred choice for applications requiring complex transactions, multi-row operations, and strict data integrity.  Common examples include banking systems, ERP software, and inventory management, where accurate relationships between data points are paramount. 
+
+NoSQL excels in scenarios involving large-scale unstructured data, real-time analytics, and rapid prototyping.  It is ideal for social media platforms, content management systems, IoT applications, and big data lakes where speed and flexibility outweigh the need for complex joins. 
+
+
+CREATE TABLE prices (
+    id SERIAL PRIMARY KEY,
+    product_name TEXT,
+    product_grade TEXT,
+    price NUMERIC(10,2),
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+py
+
+Means:
+
+Run Python
+
+-m
+install
+
+Command given to pip.
+Means:
+
+Run a Python module
+
+pip
+
+Pip is Python's package manager.
+It downloads libraries from the internet.
+
+
+psycopg2-binary
+
+This is the package name.
+
+psycopg2 is a library that allows:
+
+Python ↔ PostgreSQL
+
+communication.
+
+Why do we need Uvicorn?
+
+FastAPI only knows:
+
+How to process requests
+
+It doesn't know:
+
+How to listen on a network port
+How to accept browser connections
+How to serve HTTP traffic
+
+That's Uvicorn's job.
+
+SELECT * FROM price_history LIMIT 5;
+
+
+py -m uvicorn app:app --reload
+So:
+
+app:app
+
+means:
+
+Open app.py
+Find the FastAPI object called app
+Run it
+
+--reload
+Auto-restart when code changes
+
+Swagger is an automatically generated webpage that lets you see and test your API without writing frontend code.
+
+"I tested endpoints through FastAPI's Swagger UI at /docs before integrating them with the React frontend."
+
+npm install axios
+npm
+Node Package Manager
+
+JavaScript's package manager.
+
+
+
+Equivalent of:
+
+pip for Python
+
+axios
+Library used to call APIs
+
+autoprefixer
+Automatically adds browser compatibility code
+
+
+postcss
+CSS processor
+
+Reads CSS and transforms it before the browser sees it.
+npx
+Run a package without installing it globally
+
+Think:
+
+npm = install package
+
+npx = execute package
+
+-p
+Also create PostCSS config
+
+Creates:
+
+postcss.config.js
+
+/* /index.html 200
+
+tells the hosting server:
+
+"No matter which React route the user visits, always load index.html and let React handle the routing."
+
+
+Think of _redirects as:
+
+"Always send the user into the building (index.html)."
+
+And react-router-dom as the receptionist inside:
+
+"Oh, you're looking for /products/5? Room = ProductDetails page."
+
+When Netlify/Vercel sees:
+
+/*  /index.html  200
+
+it internally does something like:
+
+IF user requests ANY path
+    return index.html
+
+.gitignore is one of the most important files in a project.
+
+Simple meaning
+
+It tells Git:
+
+"Ignore these files. Don't upload them to GitHub."
+
+.env
+
+Contains secrets:
+
+DB_PASSWORD=mysecretpassword
+API_KEY=abcd1234
+
+never upload these9
+
+
+A Hook is a special function that lets you use React features (like state, lifecycle, etc.) inside functional components.
+
+React component = a person
+Hooks = superpowers you give that person
+
+useState → memory power
+useEffect → reaction power
+useRef → storage box that doesn’t rerender
+
+Functions starting with "use" are hooks
+
+useState
+useEffect
+useContext
+useMemo
+useApi ← custom hook

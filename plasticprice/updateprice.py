@@ -1,8 +1,11 @@
 import requests
+# requests → fetch data from CredCo API
 import psycopg2
+# psycopg2 → talk to PostgreSQL.
 
 
 def get_connection():
+    # creates a databse connection
     return psycopg2.connect(
         host="localhost",
         database="HK",
@@ -12,19 +15,25 @@ def get_connection():
 
 
 url = "https://api.credcosourcing.com/api/products/bycategory?category_id=62&state_id=DL&city_id=1&interval=2&public_pricing=1"
+# Stores the API endpoint from which prices will be downloaded.
 
 try:
     response = requests.get(url, timeout=10)
+    # Send an HTTP GET request.
     response.raise_for_status()
+    # checks status of error 
     data = response.json()
+    # Convert JSON into Python objects.
 
 except Exception as e:
+    # error handling
     print("❌ API ERROR:", e)
     exit()
 
 
 print("Products received:", len(data))
 
+# open databses for connection 
 conn = get_connection()
 cursor = conn.cursor()
 
@@ -51,6 +60,8 @@ try:
         )
 
         if cursor.fetchone() is None:
+            # If API forgot to send either field
+            # skip it.
             print(f"Skipping product {product_id} (not found)")
             skipped_count += 1
             continue
@@ -75,6 +86,8 @@ try:
 except Exception as e:
     print("❌ DB ERROR:", e)
     conn.rollback()
+    # If any SQL fails 
+    # undo all finished work(database returns to previous state)
 
 finally:
     cursor.close()
