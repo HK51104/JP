@@ -1,8 +1,13 @@
 import js from "@eslint/js";
+// Imports the default JavaScript rules.
 import globals from "globals";
+// Imports lists of predefined global variables.
 import react from "eslint-plugin-react";
+// Adds React-specific rules.
 import reactHooks from "eslint-plugin-react-hooks";
+// Adds rules for Hooks.
 import reactRefresh from "eslint-plugin-react-refresh";
+// Helps React Fast Refresh work correctly.
 
 export default [
   { ignores: ["dist", "node_modules"] },
@@ -39,8 +44,10 @@ export default [
     rules: {
       ...react.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-
+      // Load recommended Hook rules.
+      
       "react-refresh/only-export-components": "off",
+      // Turn this rule OFF. // Normally it warns if a file exports things besides React components.
 
       // safer than turning off completely
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],

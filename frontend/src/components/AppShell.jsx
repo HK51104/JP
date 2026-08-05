@@ -1,8 +1,22 @@
+/*
+CONCLUSION OF AppShell.jsx
+  AppShell is the layout component of the entire application.
+  It creates the parts of the UI that stay the same on every page:
+  Live market ticker (top bar)
+  Header with logo
+  Navigation menu
+  Market status
+  Footer
+  The only thing that changes is the page content, which is inserted through the children prop.
+*/
+
+
 import { Link, NavLink } from "react-router-dom";
 // Link)Its purpose is:Navigate to another page without refreshing the website.
 // NavLink is almost the same as Link.But it has one extra feature.It knows:"Am I the currently active page?"
 import { Activity, LayoutDashboard, Boxes, Star, BellRing } from "lucide-react";
 // Import five icon components from the lucide-react library.
+import ThemeToggle from "./ThemeToggle";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -48,8 +62,7 @@ export default function AppShell({ children }) {
                 to={n.to}
                 end={n.end}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  `flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                   }`
                 }
               >
@@ -57,11 +70,15 @@ export default function AppShell({ children }) {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2 text-[11px] font-display text-muted-foreground">
-            <div className="size-1.5 rounded-full bg-up animate-pulse" />
-            MARKET OPEN
+          
+          <div className="ml-auto flex items-center gap-4">
+            <div className="flex items-center gap-2 text-[11px] font-display text-muted-foreground">
+              <div className="size-1.5 rounded-full bg-up animate-pulse" />
+              MARKET OPEN
+            </div>
+            <ThemeToggle />
           </div>
-        </div>
+          </div>
       </header>
 
       <main className="flex-1 max-w-350 mx-auto w-full px-6 py-8">{children}</main>

@@ -1,3 +1,13 @@
+# Conclusion
+# Retrieved the latest product prices from the CredCo API and validated the response before processing the data.
+# Connected to the PostgreSQL database, verified that each product existed, and skipped records with missing or unmatched data.
+# Updated the current_price of existing products and stored every new price in the price_history table to maintain a complete historical record.
+# Implemented robust error handling using try-except-finally, including transaction rollback to preserve database consistency if any SQL operation failed.
+# Successfully synchronized the database with the latest market prices, reported the number of updated and skipped products, and safely closed all database resources after execution.
+
+
+
+
 import requests
 # requests → fetch data from CredCo API
 import psycopg2

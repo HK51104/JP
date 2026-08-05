@@ -1,3 +1,11 @@
+# Conclusion
+# Connected the Python application to the PostgreSQL database and retrieved all product categories for processing.
+# Fetched live product information from the CredCo API, validated the data, and handled API errors gracefully.
+# Inserted new products into the database while automatically updating existing records using the ON CONFLICT feature.
+# Stored the latest product prices in the price_history table to maintain historical price records for analysis.
+# Successfully automated the complete data collection and storage process, ensuring the database remains updated with the latest market prices.
+
+
 import requests
 # import request library
 import psycopg2
@@ -30,10 +38,9 @@ cursor = conn.cursor()
 # -----------------------------
 # GET CATEGORIES FROM DB
 # -----------------------------
-cursor.execute
 # cursor.execute() is the function that sends SQL commands from Python to PostgreSQL.
 # Run SQL.
-("""
+cursor.execute("""
     SELECT id, category_name
     FROM categories
 """)
@@ -52,10 +59,9 @@ for category_id, category_name in categories:
 
     # It lets you insert variables or expressions directly inside a string using {}.
 
-    url = 
     # Create URL.
     # All those f"..." strings are automatically joined together by Python because they are inside the same pair of parentheses.
-    (
+    url =(
         f"https://api.credcosourcing.com/api/products/bycategory?"
         f"category_id={category_id}"
         f"&state_id=DL"
@@ -113,9 +119,8 @@ for category_id, category_name in categories:
         current_price = float(current_price)
         # convert to real number
 
-        cursor.execute
         # run SQL
-        ("""
+        cursor.execute("""
             INSERT INTO products
             (
                 category_id,
@@ -167,9 +172,8 @@ for category_id, category_name in categories:
         product_id = cursor.fetchone()[0]
         # read returned id
 
-        cursor.execute
         # store todays price
-        ("""
+        cursor.execute("""
             INSERT INTO price_history
             (product_id, price)
             VALUES (%s,%s)

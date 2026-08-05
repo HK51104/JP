@@ -1,3 +1,11 @@
+# Conclusion
+# Retrieved product information from the CredCo API and extracted each product's API ID, name, and grade for processing.
+# Connected the Python application to the PostgreSQL database and searched for matching products using their name and grade.
+# Updated the api_id field in the products table to establish a direct mapping between local database records and CredCo API records.
+# Counted the number of successfully matched products and identified products that could not be found in the database.
+# Committed all updates, safely closed the database connection, and generated a summary of matched and unmatched products after execution.
+
+
 import requests
 # Used to call the CredCo API.
 import psycopg2

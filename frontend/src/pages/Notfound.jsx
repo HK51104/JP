@@ -1,3 +1,7 @@
+/*
+NotFound.jsx is the application's 404 error page. Its job is to handle any invalid URL that doesn't match an existing route. Instead of showing a blank screen or crashing, it displays a clear "Page Not Found" message and provides a button that navigates the user back to the dashboard. This ensures users always have a way to recover from entering an incorrect or unavailable URL.
+*/
+
 import { Link } from "react-router-dom";
 // Link is a component from the react-router-dom library that allows navigation between different pages in a React application without causing a full page reload. It is used to create links that enable users to navigate to different routes defined in the application.
 

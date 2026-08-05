@@ -1,3 +1,12 @@
+# Conclusion
+# Connected the Python application to the PostgreSQL database and established a cursor to execute SQL operations.
+# Retrieved the latest category information from the CredCo API with proper exception handling to ensure reliable data fetching.
+# Validated the received category data and skipped incomplete records to maintain database integrity.
+# Inserted new categories and updated existing ones using PostgreSQL's ON CONFLICT (UPSERT) feature, preventing duplicate entries.
+# Committed all changes to the database, closed the database resources safely, and displayed a summary of inserted, updated, and skipped categories after successful execution.
+
+
+
 import requests
 # import request library
 import psycopg2

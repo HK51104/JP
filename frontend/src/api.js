@@ -1,3 +1,10 @@
+/*
+Conclusion:
+The api.js file acts as the communication layer between the frontend and the backend. It centralizes all API requests into reusable functions and provides the custom useApi hook to simplify data fetching, loading management, and error handling. By keeping API logic separate from UI components, the application becomes more modular, easier to maintain, and avoids code duplication. This approach allows React components to focus on rendering the interface while api.js handles all interactions with the backend efficiently and consistently.
+*/
+
+
+
 // Centralized API client for the Polymetric backend (FastAPI).
 // Configure the base URL via VITE_API_BASE_URL (defaults to local dev server).
 //

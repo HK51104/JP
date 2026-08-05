@@ -1,3 +1,13 @@
+/*
+Conclusion – ProductDetails.jsx
+
+ProductDetails.jsx is the page that displays complete information about one selected product. It fetches the product details and its historical price data from the backend, allows users to change the time range (30D, 90D, 1Y), calculates important statistics like period change, highest and lowest price, and visualizes the price trend using an interactive Recharts graph. It also integrates watchlist management, price alerts, datasheet downloads, RFQ requests, and supplier information, making it the most detailed product analysis page in the application.
+*/
+
+
+
+
+
 import { useState } from "react";
 // useState is a React hook that allows you to add state to functional components. It returns an array with two elements: the current state value and a function to update that state.
 import { Link, useParams } from "react-router-dom";
