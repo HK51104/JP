@@ -1,3 +1,14 @@
+# Conclusion
+# Developed a FastAPI backend that provides multiple REST API endpoints for products, categories, dashboard statistics, price history, and price synchronization.
+# Established a secure connection between the FastAPI application and the PostgreSQL database using the psycopg2 library, enabling efficient data retrieval and updates.
+# Configured CORS middleware to allow seamless communication between the React frontend and the FastAPI backend without browser security restrictions.
+# Implemented database queries to fetch product information, historical prices, categories, and dashboard summaries, while returning structured JSON responses for frontend consumption.
+# Integrated the CredCo API with the /sync-prices endpoint to automatically update product prices, maintain historical price records, and keep the database synchronized with the latest market data.
+
+
+
+
+
 import requests
 # Used for calling another website's API. 
 import psycopg2
@@ -49,32 +60,30 @@ app = FastAPI()
 # middleware It sits in the middle of the request and response.
 # Middleware is software that runs before and/or after a request reaches a route handler, allowing you to perform common tasks such as CORS handling, authentication, logging, rate limiting, and modifying requests or responses without duplicating code in every endpoint.
 
-app.add_middleware
-# Adds CORS middleware.
-# It tells FastAPI:
-# Allow these websites
-# ↓
-# http://localhost:8080
-# because your frontend runs there.
-(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8080"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Adds CORS middleware.
+# It tells FastAPI:
+# Allow these websites
+# ↓
+# http://localhost:8080
+# because your frontend runs there.
 
 # ----------------------------
 # DB CONNECTION
 # ----------------------------
 def get_connection():
-    return psycopg2.connect
+    return psycopg2.connect (
     # actually opens the database connection.
     # Python
     #    │  
     #    ▼
     # PostgreSQL
-    (
         host="localhost",
         database="HK",
         user="postgres",
@@ -89,8 +98,8 @@ def get_connection():
 # It tells FastAPI:
 # "When someone visits /, run the function below."
 
-def home():
     # Function executed for /.
+def home():
     return {"message": "Plastic Price API Running"}
     # FastAPI automatically converts this into JSON.
 # ----------------------------
@@ -128,9 +137,8 @@ def get_products():
     cursor.close()
     conn.close()
 
-    return 
     # builds JSON
-    [
+    return [
         {
             "id": r[0],
             "product_name": r[1],
@@ -331,11 +339,6 @@ def get_categories():
 # SYNC PRICES
 # ----------------------------
 @app.post("/sync-prices")
-# Sync Prices endpoint
-# This is the most important endpoint.
-# POST /sync-prices
-# means
-# Update prices.
 def sync_prices():
 
     url = "https://api.credcosourcing.com/api/products/bycategory?category_id=62&state_id=DL&city_id=1&interval=2&public_pricing=1"
@@ -354,37 +357,90 @@ def sync_prices():
         price = float(p["current_price"])
 
         cursor.execute("""
-            SELECT id FROM products WHERE id = %s
+            SELECT id
+            FROM products
+            WHERE api_id = %s
         """, (api_id,))
 
         row = cursor.fetchone()
 
+        # ----------------------------------------------------
+        # Product not found → insert new product
+        # ----------------------------------------------------
         if not row:
-            skipped += 1
+
+            cursor.execute("""
+                INSERT INTO products
+                (
+                    api_id,
+                    product_name,
+                    product_grade,
+                    current_price,
+                    category_id
+                )
+                VALUES (%s,%s,%s,%s,%s)
+                RETURNING id
+            """, (
+                api_id,
+                p["product_name"],
+                p["product_grade"],
+                price,
+                p["category_id"]
+            ))
+
+            db_id = cursor.fetchone()[0]
+
+            cursor.execute("""
+                INSERT INTO price_history
+                (
+                    product_id,
+                    price
+                )
+                VALUES (%s,%s)
+            """, (
+                db_id,
+                price
+            ))
+
+            updated += 1
             continue
 
+        # ----------------------------------------------------
+        # Product already exists → update price
+        # ----------------------------------------------------
         db_id = row[0]
 
         cursor.execute("""
             UPDATE products
-            SET current_price = %s
+            SET
+                current_price = %s,
+                last_updated = NOW()
             WHERE id = %s
-        """, (price, db_id))
+        """, (
+            price,
+            db_id
+        ))
 
         cursor.execute("""
-            INSERT INTO price_history (product_id, price)
-            VALUES (%s, %s)
-        """, (db_id, price))
+            INSERT INTO price_history
+            (
+                product_id,
+                price
+            )
+            VALUES (%s,%s)
+        """, (
+            db_id,
+            price
+        ))
 
         updated += 1
 
     conn.commit()
+
     cursor.close()
     conn.close()
 
-    return 
-    # This return sends the final response back to whoever called the API
-    {
+    return {
         "message": "Sync completed",
         "updated": updated,
         "skipped": skipped,

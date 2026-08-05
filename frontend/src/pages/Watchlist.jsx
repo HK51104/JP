@@ -1,3 +1,10 @@
+/*
+CONCLUSION)
+this Watchlist component allows users to view and manage all the products they have marked as favorites. It fetches the complete product list from the backend, filters only the products present in the user's watchlist, and displays them in an organized card layout. Users can quickly navigate to a product's details page, monitor its latest price, or remove it from the watchlist. The component also handles loading states, API errors, and empty watchlist scenarios to provide a smooth and user-friendly experience.
+*/
+
+
+
 import { Link } from "react-router-dom";
 // Link is a component from the react-router-dom library that allows navigation between different pages in a React application without causing a full page reload. It is used to create links that enable users to navigate to different routes defined in the application.
 import { Star } from "lucide-react";
@@ -29,7 +36,7 @@ export default function Watchlist()
     // If the data is still being fetched (indicated by the "loading" state being true), the component renders a loading message to inform the user that the watchlist is being loaded. This provides feedback to the user while waiting for the API request to complete. 
     {
     return (
-      <div className="p-6 text-gray-400">
+      <div className="p-6 text-muted-foreground">
         Loading watchlist...
       </div>
     );
@@ -55,7 +62,7 @@ export default function Watchlist()
       <div>
         {/* Header section. */}
         <h1 className="text-2xl font-bold">Watchlist</h1>
-        <p className="text-gray-400 text-sm">
+        <p className="text-muted-foreground text-sm">
           Saved products
         </p>
       </div>
@@ -83,7 +90,7 @@ export default function Watchlist()
                 {/* Top section of the card. splits into left and right */}
                 <div>
                   {/* stores product info */}
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     {/* shows category */}
                     {p.category}
                   </div>
@@ -95,7 +102,7 @@ export default function Watchlist()
                     {p.name}
                   </Link>
 
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     {/* shows grade */}
                     {p.grade}
                   </div>

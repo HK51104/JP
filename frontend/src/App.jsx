@@ -1,3 +1,12 @@
+/*
+Conclusion of App.jsx
+  App.jsx is the root component of the React application.
+  It defines the overall application structure, mainly the routing configuration.
+  It decides which page/component should be displayed based on the current URL.
+  Every page (Dashboard, Products, Product Details, Watchlist, Alerts, etc.) is rendered through App.jsx.
+*/
+
+
 import { Routes, Route } from "react-router-dom";
 // "If the user visits this road, show this page."
 // That's what Routes and Route do.
@@ -15,6 +24,8 @@ import NotFound from "./pages/Notfound.jsx";
 export default function App() {
   // when App() was called in main.jsx here it is what is returned 
   return (
+
+    <div className="dark:bg-slate-950 dark:text-foreground bg-card text-foreground">
     <AppShell>
       {/* AppShell provides the overall layout for the application sourced from different page */}
 
@@ -36,5 +47,6 @@ export default function App() {
       </Routes>
       {/* CHILDREN */}
     </AppShell>
+    </div>
   );
 }

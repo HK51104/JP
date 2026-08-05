@@ -1,3 +1,31 @@
+/*
+Dashboard.jsx — Conclusion
+  1. Fetches data from the backend)The very first thing it does is fetch all products.
+  2. Handles Loading & Errors  
+  3. Creates derived data The backend only sends raw products.Dashboard creates extra information from those products.
+  4.uses reusable components
+  5.Renders sections)The page is basically divided into blocks.
+  Dashboard
+│
+├── Heading
+│
+├── Statistics Cards
+│
+├── Category Average Grid
+│
+├── Top Movers
+│
+└── Browse Categories
+  6. Uses map() everywhere
+  7. Uses conditional rendering
+  8. Uses Links instead of <a>
+  9. Uses reusable utility functions(moved to api.js forlogic rather than writing it here)
+
+*/
+
+
+
+
 import { Link } from "react-router-dom";
 // Link is a React component provided by the react-router-dom library. It allows you to create links that navigate to different routes in your application without causing a full page reload.
 import { ArrowDownRight, ArrowUpRight, Boxes, Layers, Activity, Clock } from "lucide-react";
@@ -161,7 +189,7 @@ Meaning:
       <div className="mb-8">
         {/* Hold the page title and subtitle. */}
         {/* mb-8 means margin-bottom: 2rem (8 tailwind unit) */}
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Market Overview</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-1 text-foreground">Market Overview</h1>
         {/* text-sm = small text size, text-muted-foreground = muted foreground color tracking tight spacing between words  */}
         <p className="text-sm text-muted-foreground">Indicative spot prices for primary polymer grades — India market.</p>
         {/* text-sm = small text size  text-muted-foreground = muted foreground color */}
@@ -301,7 +329,7 @@ Meaning:
               {c}
             </Link>
           ))}
-        </div>
+        </div>  
       </div>
     </>
   );

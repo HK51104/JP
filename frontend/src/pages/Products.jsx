@@ -1,3 +1,14 @@
+/*
+Products.jsx — Final Conclusion
+
+This page has one responsibility:
+
+Fetch all products from the backend, let the user search/filter them, and display them in a table.
+*/
+
+
+
+
 import { Link, useSearchParams } from "react-router-dom";
 // useSearchParams is a hook from react-router-dom that allows you to read and modify the query parameters in the URL. It returns an array with two elements: the current search parameters and a function to update them.
 // Link is a component from react-router-dom that allows you to navigate to different routes in your application without causing a full page reload. It is used to create links that users can click to navigate to different pages within the app.

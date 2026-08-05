@@ -1,3 +1,10 @@
+/*
+CONCLUSION)
+ this Alerts component allows users to create and manage price alerts for polymer products. It fetches the available products from the backend, lets users choose a product, define an alert condition (above or below a target price), select one or more notification channels, and save the alert. It also displays all active alerts and allows users to delete them. By combining React state, custom hooks, and API integration, the page provides a complete interface for monitoring product prices and notifying users when their specified conditions are met.
+*/
+
+
+
 import { useState } from "react";
 // useState is a React hook that allows functional components to have state variables. It returns an array with two elements: the current state value and a function to update that value. In this code, useState is used to manage the state of various variables such as product ID, direction, threshold, and notification channels in the Alerts component.
 import { useSearchParams } from "react-router-dom";

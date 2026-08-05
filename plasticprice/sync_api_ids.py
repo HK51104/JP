@@ -53,16 +53,18 @@ for p in data:
 
     # safer matching (case insensitive + trim)
     cursor.execute("""
-        UPDATE products
-        SET api_id = %s
-        WHERE LOWER(TRIM(product_name)) = LOWER(TRIM(%s))
-        AND LOWER(TRIM(product_grade)) = LOWER(TRIM(%s))
-    """, (api_id, name, grade))
+UPDATE products
+SET api_id = %s
+WHERE LOWER(TRIM(product_name)) = LOWER(TRIM(%s))
+AND LOWER(TRIM(SPLIT_PART(product_grade, ' - ', 1)))
+    = LOWER(TRIM(SPLIT_PART(%s, ' - ', 1)))
+""", (api_id, name, grade))
 
     if cursor.rowcount > 0:
         matched += 1
     else:
-        not_found += 1
+         print(name, " | ", grade)
+    not_found += 1
 
 conn.commit()
 cursor.close()
