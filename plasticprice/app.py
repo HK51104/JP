@@ -7,7 +7,7 @@
 
 
 
-
+import os
 
 import requests
 # Used for calling another website's API. 
@@ -78,16 +78,8 @@ app.add_middleware(
 # DB CONNECTION
 # ----------------------------
 def get_connection():
-    return psycopg2.connect (
-    # actually opens the database connection.
-    # Python
-    #    │  
-    #    ▼
-    # PostgreSQL
-        host="localhost",
-        database="HK",
-        user="postgres",
-        password="HK12345"
+    return psycopg2.connect(
+        os.environ["DATABASE_URL"]
     )
 
 # ----------------------------
