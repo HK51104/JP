@@ -16,9 +16,8 @@ import { useEffect, useState } from "react";
 // useEffect is a built-in React Hook.Its job is:"Run some code after the component renders."
 // useState is a built-in React Hook.Its job is:"Create a piece of state (memory) for this component."
 
-
 export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "https://jp-pfin.onrender.com/";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||"https://jp-pfin.onrender.com";
   // This is NOT the normal import keyword.
   // .meta contains information about your application.
   // .env Give me all environment variables.
