@@ -18,19 +18,19 @@ import { useEffect, useState } from "react";
 
 
 export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "https://jp-pfin.onrender.com/";
   // This is NOT the normal import keyword.
   // .meta contains information about your application.
   // .env Give me all environment variables.
   // ?. Optional Chaining. Only continue if the value exists.
   // .replace(...) Built-in String function.Meaning Replace part of the string.(we will only reach replace after optional chaining)
-  // import.meta.env.VITE_API_BASE_URL "This is the environment variable that holds the base URL for the API."(usually  VITE_API_BASE_URL: "http://localhost:8000")
+  // import.meta.env.VITE_API_BASE_URL "This is the environment variable that holds the base URL for the API."(usually  VITE_API_BASE_URL: "https://jp-pfin.onrender.com/")
   // /\/$/ This is a Regular Expression (Regex).
   // / starts regex
   // $ means End of the string
-  // Create a variable named API_BASE. First try to read the backend URL from the environment variable VITE_API_BASE_URL. If it exists, remove any trailing / from the end. If it doesn't exist, fall back to http://127.0.0.1:8000. Then export this variable so other files can use it.
+  // Create a variable named API_BASE. First try to read the backend URL from the environment variable VITE_API_BASE_URL. If it exists, remove any trailing / from the end. If it doesn't exist, fall back to https://jp-pfin.onrender.com/. Then export this variable so other files can use it.
   // ?.replace(/\/$/, "") "If the environment variable exists, remove any trailing slash from it."
-  // || or  "http://127.0.0.1:8000"
+  // || or  "https://jp-pfin.onrender.com/"
 
 async function getJSON(path) 
 // async means "This function will return a promise, and you can use await to wait for it to finish."
