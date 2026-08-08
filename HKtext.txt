@@ -94,7 +94,7 @@ FastAPI = Your API Code
 
 Uvicorn = The Server That Runs It
 
-http://127.0.0.1:8000/docs
+https://jp-pfin.onrender.com//docs
 
 FastAPI automatically generates a professional API documentation page.
 
@@ -347,7 +347,7 @@ Status codes
 
 Example:
 
-GET http://127.0.0.1:8000/products
+GET https://jp-pfin.onrender.com//products
 
 Status: 200 OK
 
