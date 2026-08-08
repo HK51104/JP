@@ -9,12 +9,12 @@ import psycopg2
 def get_connection():
     # database connection
     return psycopg2.connect(
-        host="localhost",
-        database="HK",
-        user="postgres",
-        password="HK12345"
-    )
-
+    host="ep-royal-wildflower-azc5frkj.c-3.ap-southeast-1.aws.neon.tech",
+    database="neondb",
+    user="neondb_owner",
+    password="npg_y8zuWgpAc9Qf",
+    sslmode="require"
+)
 
 url = "https://api.credcosourcing.com/api/products/bycategory?category_id=62&state_id=DL&city_id=1&interval=2&public_pricing=1"
 # This requests products from Category 62.
