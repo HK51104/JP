@@ -16,7 +16,7 @@ import { Link, NavLink } from "react-router-dom";
 // NavLink is almost the same as Link.But it has one extra feature.It knows:"Am I the currently active page?"
 import { Activity, LayoutDashboard, Boxes, Star, BellRing } from "lucide-react";
 // Import five icon components from the lucide-react library.
-import ThemeToggle from "./Themetoggle";
+import ThemeToggle from "./ThemeToggle";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
