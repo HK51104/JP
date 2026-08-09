@@ -361,22 +361,24 @@ def sync_prices():
     print("Database connected", flush=True)
 
     updated = 0
+for p in data:
 
-    for p in data:
+    api_id = p["id"]
 
-        api_id = p["id"]
-        price = float(p["current_price"])
+    if p.get("current_price") is None:
+        print("Skipping product with no price:", api_id, flush=True)
+        skipped += 1
+        continue
 
-        cursor.execute(
-            """
-            SELECT id
-            FROM products
-            WHERE api_id = %s
-            """,
-            (api_id,)
-        )
+    price = float(p["current_price"])
 
-        row = cursor.fetchone()
+    cursor.execute("""
+        SELECT id
+        FROM products
+        WHERE api_id = %s
+    """, (api_id,))
+
+    row = cursor.fetchone()
 
         if not row:
             print("Product not found:", api_id, flush=True)
