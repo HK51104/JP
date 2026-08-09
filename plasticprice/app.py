@@ -330,9 +330,7 @@ def get_categories():
 # ----------------------------
 # SYNC PRICES
 # ----------------------------
-@app.get("/test")
-def test():
-    return {"status": "backend is working"}
+
 
 @app.post("/sync-prices")
 def sync_prices():
@@ -343,8 +341,7 @@ def sync_prices():
 
     print("Calling CredCo...", flush=True)
 
-    response = requests.get(url, timeout=15)
-
+    response = requests.get(url, timeout=20)
     print("CredCo status:", response.status_code, flush=True)
 
     response.raise_for_status()
@@ -353,68 +350,113 @@ def sync_prices():
 
     print("CredCo products:", len(data), flush=True)
 
-    print("Connecting to database...", flush=True)
-
     conn = get_connection()
     cursor = conn.cursor()
 
     print("Database connected", flush=True)
 
     updated = 0
-for p in data:
+    skipped = 0
 
-    api_id = p["id"]
+    try:
 
-    if p.get("current_price") is None:
-        print("Skipping product with no price:", api_id, flush=True)
-        skipped += 1
-        continue
+        for p in data:
 
-    price = float(p["current_price"])
+            api_id = p.get("id")
+            current_price = p.get("current_price")
 
-    cursor.execute("""
-        SELECT id
-        FROM products
-        WHERE api_id = %s
-    """, (api_id,))
+            # Skip products where CredCo has no price
+            if current_price is None:
+                print(
+                    "Skipping product with no price:",
+                    api_id,
+                    flush=True
+                )
+                skipped += 1
+                continue
 
-    row = cursor.fetchone()
+            price = float(current_price)
 
-        if not row:
-            print("Product not found:", api_id, flush=True)
-            continue
+            cursor.execute(
+                """
+                SELECT id
+                FROM products
+                WHERE api_id = %s
+                """,
+                (api_id,)
+            )
 
-        db_id = row[0]
+            row = cursor.fetchone()
 
-        cursor.execute(
-            """
-            UPDATE products
-            SET current_price = %s,
-                last_updated = NOW()
-            WHERE id = %s
-            """,
-            (price, db_id)
+            # Product does not exist in our database
+            if not row:
+                print(
+                    "Product not found:",
+                    api_id,
+                    flush=True
+                )
+                skipped += 1
+                continue
+
+            db_id = row[0]
+
+            # Update current price
+            cursor.execute(
+                """
+                UPDATE products
+                SET current_price = %s,
+                    last_updated = NOW()
+                WHERE id = %s
+                """,
+                (price, db_id)
+            )
+
+            # Save price history
+            cursor.execute(
+                """
+                INSERT INTO price_history
+                (
+                    product_id,
+                    price
+                )
+                VALUES (%s, %s)
+                """,
+                (db_id, price)
+            )
+
+            updated += 1
+
+        conn.commit()
+
+    except Exception as e:
+
+        conn.rollback()
+
+        print(
+            "SYNC ERROR:",
+            e,
+            flush=True
         )
 
-        cursor.execute(
-            """
-            INSERT INTO price_history (product_id, price)
-            VALUES (%s, %s)
-            """,
-            (db_id, price)
-        )
+        raise
 
-        updated += 1
+    finally:
 
-    conn.commit()
+        cursor.close()
+        conn.close()
 
-    cursor.close()
-    conn.close()
-
-    print("SYNC FINISHED:", updated, flush=True)
+    print(
+        "SYNC FINISHED:",
+        updated,
+        "updated,",
+        skipped,
+        "skipped",
+        flush=True
+    )
 
     return {
         "message": "Sync completed",
         "updated": updated,
+        "skipped": skipped,
         "total": len(data)
     }
