@@ -330,6 +330,10 @@ def get_categories():
 # ----------------------------
 # SYNC PRICES
 # ----------------------------
+@app.get("/test")
+def test():
+    return {"status": "backend is working"}
+    
 @app.post("/sync-prices")
 def sync_prices():
 
