@@ -333,101 +333,74 @@ def get_categories():
 @app.get("/test")
 def test():
     return {"status": "backend is working"}
-    
+
 @app.post("/sync-prices")
 def sync_prices():
 
+    print("SYNC STARTED", flush=True)
+
     url = "https://api.credcosourcing.com/api/products/bycategory?category_id=62&state_id=DL&city_id=1&interval=2&public_pricing=1"
 
-    data = requests.get(url).json()
+    print("Calling CredCo...", flush=True)
+
+    response = requests.get(url, timeout=15)
+
+    print("CredCo status:", response.status_code, flush=True)
+
+    response.raise_for_status()
+
+    data = response.json()
+
+    print("CredCo products:", len(data), flush=True)
+
+    print("Connecting to database...", flush=True)
 
     conn = get_connection()
     cursor = conn.cursor()
 
+    print("Database connected", flush=True)
+
     updated = 0
-    skipped = 0
 
     for p in data:
 
         api_id = p["id"]
         price = float(p["current_price"])
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id
             FROM products
             WHERE api_id = %s
-        """, (api_id,))
+            """,
+            (api_id,)
+        )
 
         row = cursor.fetchone()
 
-        # ----------------------------------------------------
-        # Product not found → insert new product
-        # ----------------------------------------------------
         if not row:
-
-            cursor.execute("""
-                INSERT INTO products
-                (
-                    api_id,
-                    product_name,
-                    product_grade,
-                    current_price,
-                    category_id
-                )
-                VALUES (%s,%s,%s,%s,%s)
-                RETURNING id
-            """, (
-                api_id,
-                p["product_name"],
-                p["product_grade"],
-                price,
-                p["category_id"]
-            ))
-
-            db_id = cursor.fetchone()[0]
-
-            cursor.execute("""
-                INSERT INTO price_history
-                (
-                    product_id,
-                    price
-                )
-                VALUES (%s,%s)
-            """, (
-                db_id,
-                price
-            ))
-
-            updated += 1
+            print("Product not found:", api_id, flush=True)
             continue
 
-        # ----------------------------------------------------
-        # Product already exists → update price
-        # ----------------------------------------------------
         db_id = row[0]
 
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE products
-            SET
-                current_price = %s,
+            SET current_price = %s,
                 last_updated = NOW()
             WHERE id = %s
-        """, (
-            price,
-            db_id
-        ))
+            """,
+            (price, db_id)
+        )
 
-        cursor.execute("""
-            INSERT INTO price_history
-            (
-                product_id,
-                price
-            )
-            VALUES (%s,%s)
-        """, (
-            db_id,
-            price
-        ))
+        cursor.execute(
+            """
+            INSERT INTO price_history (product_id, price)
+            VALUES (%s, %s)
+            """,
+            (db_id, price)
+        )
 
         updated += 1
 
@@ -436,9 +409,10 @@ def sync_prices():
     cursor.close()
     conn.close()
 
+    print("SYNC FINISHED:", updated, flush=True)
+
     return {
         "message": "Sync completed",
         "updated": updated,
-        "skipped": skipped,
         "total": len(data)
     }
