@@ -11,7 +11,4 @@ jobs:
 
     steps:
       - name: Sync plastic prices
-        run: |
-          curl --fail --max-time 120 `
-            -X POST `
-            https://jp-pfin.onrender.com/sync-prices
+        run: curl --fail --max-time 120 -X POST https://jp-pfin.onrender.com/sync-prices
