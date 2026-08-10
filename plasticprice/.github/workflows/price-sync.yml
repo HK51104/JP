@@ -1,0 +1,17 @@
+name: POLYMETRIC Price Sync
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Sync plastic prices
+        run: |
+          curl --fail --max-time 120 `
+            -X POST `
+            https://jp-pfin.onrender.com/sync-prices
