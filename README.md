@@ -2,160 +2,266 @@
 
 ### Plastic Raw Material Price Intelligence Platform
 
-**POLYMETRIC** is a price intelligence platform built for the plastic raw-material trading industry.
+> **Track. Compare. Monitor. Automate.**
 
-It brings plastic material prices, grades, historical movements, watchlists, and alerts into a single dashboard — turning raw market pricing data into something traders can actually monitor and use.
+POLYMETRIC is a price intelligence platform built for the **plastic raw-material trading industry**, designed to bring material prices, grades, historical price movement, watchlists and alerts into one centralized platform.
 
-The project was inspired by a real-world problem: **making plastic raw-material price tracking easier for traders who deal with polymers every day.**
+I grew up watching my father trade plastic raw materials and saw how important — and time-consuming — price tracking is in this industry.
+
+With a background in software development, I wanted to turn that real-world problem into a product.
+
+**POLYMETRIC is the result.**
+
+The current platform focuses on **price intelligence and monitoring**, with the long-term vision of becoming a complete **ERP ecosystem for plastic raw-material traders.**
 
 ---
 
 ## 🌐 Live Demo
 
-**[POLYMETRIC — Live Website](https://jp-psi-sandy.vercel.app/)**
-
-> The frontend is deployed on Vercel, while the backend API is deployed independently on Render.
+### 🚀 [Visit POLYMETRIC](https://jp-psi-sandy.vercel.app/)
 
 ---
 
-## 📌 About
+# 🛠️ Tech Stack
 
-Plastic raw-material trading involves constantly changing prices across different materials and grades.
+### Frontend
 
-POLYMETRIC is designed to provide a centralized interface where users can:
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge\&logo=react\&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge\&logo=vite\&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge\&logo=javascript\&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge\&logo=tailwindcss\&logoColor=white)
 
-* Browse plastic raw materials
-* View material and grade-wise prices
-* Inspect individual product details
-* Track price history
-* Monitor products through a personal watchlist
-* Set up price alerts
-* Observe price movements over time
-* Automatically synchronize prices from an external pricing source
+### Backend
 
-The long-term vision is to evolve POLYMETRIC from a price-tracking platform into a **complete ERP ecosystem for plastic raw-material trading.**
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge\&logo=python\&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge\&logo=fastapi\&logoColor=white)
+![Uvicorn](https://img.shields.io/badge/Uvicorn-499848?style=for-the-badge\&logo=uvicorn\&logoColor=white)
+
+### Database
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge\&logo=postgresql\&logoColor=white)
+![Neon](https://img.shields.io/badge/Neon-00E599?style=for-the-badge\&logo=neon\&logoColor=black)
+
+### Automation & Deployment
+
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge\&logo=githubactions\&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge\&logo=vercel\&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge\&logo=render\&logoColor=black)
+
+### External Data
+
+![REST API](https://img.shields.io/badge/REST_API-005571?style=for-the-badge)
+![CredCo API](https://img.shields.io/badge/CredCo-Pricing_API-555555?style=for-the-badge)
+
+---
+
+# 📖 Table of Contents
+
+* [About](#-about)
+* [Why POLYMETRIC](#-why-polymetric)
+* [Key Features](#-key-features)
+* [Architecture](#️-architecture)
+* [Automated Price Pipeline](#-automated-price-pipeline)
+* [Project Structure](#-project-structure)
+* [Installation & Setup](#-installation--setup)
+* [Environment Variables](#-environment-variables)
+* [API Reference](#-api-reference)
+* [Deployment](#-deployment)
+* [Roadmap](#-roadmap)
+* [Vision](#-vision)
+* [Author](#-author)
+
+---
+
+# 📌 About
+
+Plastic raw-material trading depends heavily on constantly changing market prices.
+
+Different materials and grades can move independently, making it important to know not only:
+
+**"What is the price today?"**
+
+but also:
+
+**"Where has the price been?"**
+
+and:
+
+**"Where is it moving?"**
+
+POLYMETRIC is designed around this idea.
+
+Instead of acting as a simple price display, the platform maintains **historical price observations** so that users can understand price movement over time.
+
+The current platform provides:
+
+* Material and grade-wise pricing
+* Product discovery
+* Product details
+* Historical price tracking
+* Watchlists
+* Alerts
+* Automated price synchronization
+
+---
+
+# 💡 Why POLYMETRIC?
+
+This project started from a real-world problem.
+
+My family has been involved in **plastic raw-material trading**, and I've seen firsthand how much of the business revolves around monitoring material prices.
+
+That made me think:
+
+> **What if the same information traders constantly track manually could be turned into a proper software system?**
+
+POLYMETRIC is my attempt to build that system.
+
+What started as a price-tracking application is intended to evolve into something much larger.
 
 ---
 
 # ✨ Key Features
 
-### 📊 Price Dashboard
+## 📊 Price Dashboard
 
-A centralized dashboard for monitoring plastic raw-material prices and market information.
-
-### 🧪 Material & Grade Tracking
-
-Browse products according to their respective plastic material and grade.
-
-### 📈 Historical Price Tracking
-
-POLYMETRIC stores historical prices rather than only displaying the latest value.
-
-This makes it possible to observe how prices move over time.
-
-### 🔎 Product Search & Browsing
-
-Browse the available products and inspect individual product information through dedicated product pages.
-
-### ⭐ Watchlist
-
-Users can maintain a personal watchlist of products they want to monitor regularly.
-
-### 🔔 Price Alerts
-
-The application includes an alerts section for monitoring relevant price changes.
-
-### 🔄 Automated Price Synchronization
-
-POLYMETRIC automatically retrieves updated prices from the external pricing source and synchronizes them with the application's database.
-
-The synchronization process:
-
-1. Fetches product data from the external API
-2. Reads the latest available price
-3. Matches products using their API ID
-4. Updates the current price
-5. Updates the `last_updated` timestamp
-6. Inserts the new price into `price_history`
-
-### 🤖 Scheduled Automation
-
-Price synchronization is automated using **GitHub Actions**.
-
-A scheduled workflow sends a request to the backend's `/sync-prices` endpoint, allowing the database to receive fresh pricing data without manually running the sync script.
-
-### 🌙 Theme Support
-
-The frontend includes a theme toggle for switching between light and dark visual modes.
-
-### ⚡ Independent Frontend & Backend Deployment
-
-The frontend and backend are deployed independently.
-
-This keeps the client application and API layer separated and allows each service to be developed and deployed independently.
+A centralized dashboard for monitoring plastic raw-material pricing information.
 
 ---
 
-# 🏗️ System Architecture
+## 🧪 Materials & Grades
+
+Browse plastic raw materials and their respective grades through a structured product catalog.
+
+---
+
+## 🔎 Product Details
+
+Each product can be opened individually to inspect its available information and pricing.
+
+---
+
+## 📈 Historical Price Tracking
+
+POLYMETRIC doesn't only store the latest price.
+
+Every successful synchronization can create a new historical price observation.
+
+This creates a dataset that can eventually be used for:
+
+* Historical comparisons
+* Trend analysis
+* Price movement visualization
+* Market intelligence
+
+---
+
+## ⭐ Watchlist
+
+Users can add products to a personal watchlist for quick access to the materials they monitor most frequently.
+
+---
+
+## 🔔 Alerts
+
+The application includes an alerts section for monitoring relevant price changes.
+
+---
+
+## 🔄 Automated Price Synchronization
+
+POLYMETRIC automatically retrieves updated pricing information from the external pricing source.
+
+The synchronization process:
 
 ```text
-                    ┌──────────────────────┐
-                    │      CredCo API      │
-                    │ External Price Data  │
-                    └──────────┬───────────┘
-                               │
-                               │ Price Data
-                               ▼
-                    ┌──────────────────────┐
-                    │     FastAPI API      │
-                    │      Render          │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │   PostgreSQL / Neon  │
-                    │                      │
-                    │ products             │
-                    │ categories           │
-                    │ price_history        │
-                    └──────────┬───────────┘
-                               │
-                               │ REST API
-                               ▼
-                    ┌──────────────────────┐
-                    │   React + Vite       │
-                    │      Vercel          │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │   POLYMETRIC UI      │
-                    │                      │
-                    │ Dashboard            │
-                    │ Products             │
-                    │ Product Details      │
-                    │ Watchlist             │
-                    │ Alerts               │
-                    └──────────────────────┘
-
-
-        GitHub Actions
-              │
-              │ Scheduled request
-              ▼
-       POST /sync-prices
-              │
-              ▼
-         FastAPI Backend
-              │
-              ▼
-       Database Price Update
+External Pricing API
+        │
+        ▼
+   Fetch Products
+        │
+        ▼
+   Match API IDs
+        │
+        ▼
+ Update Current Price
+        │
+        ▼
+ Update Timestamp
+        │
+        ▼
+ Store Price History
 ```
 
 ---
 
-# 🔄 Automated Price Synchronization
+## 🌙 Theme Support
 
-One of the core parts of POLYMETRIC is its automated price-ingestion pipeline.
+The interface supports light and dark visual modes.
+
+---
+
+# 🏗️ Architecture
+
+POLYMETRIC is deployed as a multi-service application.
+
+```text
+                         ┌────────────────────────┐
+                         │      CredCo API        │
+                         │  External Price Data   │
+                         └────────────┬───────────┘
+                                      │
+                                      │
+                                      ▼
+                         ┌────────────────────────┐
+                         │     FastAPI Backend    │
+                         │        Render          │
+                         └────────────┬───────────┘
+                                      │
+                                      │
+                                      ▼
+                         ┌────────────────────────┐
+                         │    PostgreSQL / Neon   │
+                         │                        │
+                         │  Products              │
+                         │  Categories            │
+                         │  Price History         │
+                         └────────────┬───────────┘
+                                      │
+                                      │ REST API
+                                      ▼
+                         ┌────────────────────────┐
+                         │     React Frontend     │
+                         │         Vercel         │
+                         └────────────┬───────────┘
+                                      │
+                                      ▼
+                         ┌────────────────────────┐
+                         │       POLYMETRIC       │
+                         │                        │
+                         │  Dashboard             │
+                         │  Products              │
+                         │  Product Details       │
+                         │  Watchlist             │
+                         │  Alerts                │
+                         └────────────────────────┘
+
+
+                         ┌────────────────────────┐
+                         │     GitHub Actions     │
+                         │   Scheduled Workflow   │
+                         └────────────┬───────────┘
+                                      │
+                                      │ POST /sync-prices
+                                      ▼
+                                FastAPI Backend
+```
+
+---
+
+# ⚙️ Automated Price Pipeline
+
+One of the more important engineering pieces of POLYMETRIC is the automated pricing pipeline.
 
 The backend exposes:
 
@@ -163,169 +269,112 @@ The backend exposes:
 POST /sync-prices
 ```
 
-The endpoint retrieves the latest product pricing data from the external source.
+When triggered, the endpoint:
 
-For every product:
+1. Calls the external pricing API
+2. Retrieves the latest product data
+3. Reads the current price
+4. Matches products using their external API ID
+5. Updates the current price in PostgreSQL
+6. Updates the `last_updated` timestamp
+7. Inserts a new record into `price_history`
+8. Commits the transaction
 
-```text
-External API
-     ↓
-Read API ID
-     ↓
-Read current price
-     ↓
-Find matching product in DB
-     ↓
-Update current_price
-     ↓
-Update last_updated
-     ↓
-Insert price_history record
-```
+Products with unavailable prices are skipped.
 
-Products without a valid current price are skipped.
+Products that don't exist in the local database are also skipped rather than being inserted unexpectedly.
 
-Products that cannot be matched to an existing database record are also skipped rather than being inserted unexpectedly.
-
-The synchronization is wrapped in a database transaction so that an error can trigger a rollback instead of leaving a partially updated synchronization.
+Database changes are performed inside a transaction so synchronization errors can trigger a rollback.
 
 ---
 
-# ⏰ GitHub Actions Automation
+# 🤖 GitHub Actions Automation
 
-POLYMETRIC uses GitHub Actions to trigger the synchronization automatically.
+The synchronization process is automated using **GitHub Actions**.
 
-Workflow:
+A scheduled workflow sends a request to the deployed backend:
+
+```bash
+curl --fail --max-time 120 \
+  -X POST \
+  https://jp-pfin.onrender.com/sync-prices
+```
+
+The complete automation pipeline:
 
 ```text
-GitHub Actions
-      │
-      │ Scheduled execution
-      ▼
-POST /sync-prices
-      │
-      ▼
-Render FastAPI backend
-      │
-      ▼
-External pricing API
-      │
-      ▼
-PostgreSQL
+             GitHub Actions
+                   │
+                   │ Scheduled Trigger
+                   ▼
+             /sync-prices
+                   │
+                   ▼
+            FastAPI / Render
+                   │
+                   ▼
+            External API
+                   │
+                   ▼
+             PostgreSQL
+                   │
+                   ▼
+          Updated POLYMETRIC
 ```
 
-The workflow can also be triggered manually through GitHub Actions.
-
-Example workflow:
-
-```yaml
-name: POLYMETRIC Price Sync
-
-on:
-  schedule:
-    - cron: "30 3 * * *"
-  workflow_dispatch:
-
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Sync plastic prices
-        run: curl --fail --max-time 120 -X POST https://jp-pfin.onrender.com/sync-prices
-```
-
-This means the price update process does not depend on manually running a Python script every day.
-
----
-
-# 🛠️ Tech Stack
-
-## Frontend
-
-* React
-* Vite
-* JavaScript
-* Tailwind CSS
-* React Router
-* CSS
-* JavaScript local storage for watchlist functionality
-
-## Backend
-
-* Python
-* FastAPI
-* Uvicorn
-* Requests
-
-## Database
-
-* PostgreSQL
-* Neon
-
-## Automation
-
-* GitHub Actions
-
-## Deployment
-
-* Vercel — Frontend
-* Render — Backend API
-* Neon — PostgreSQL database
-
-## External Data
-
-* CredCo pricing API
+The workflow can also be triggered manually when required.
 
 ---
 
 # 📂 Project Structure
 
 ```text
-HK/
+JP/
 │
 ├── .github/
 │   └── workflows/
 │       └── price-sync.yml
 │
 ├── frontend/
-│   │
 │   ├── public/
 │   │   ├── logo.png
 │   │   └── _redirects
 │   │
-│   └── src/
-│       ├── assets/
-│       │   ├── hero.png
-│       │   ├── react.svg
-│       │   └── vite.svg
-│       │
-│       ├── components/
-│       │   ├── APIerror.jsx
-│       │   ├── AppShell.jsx
-│       │   └── ThemeToggle.jsx
-│       │
-│       ├── lib/
-│       │   └── watchlist.js
-│       │
-│       ├── pages/
-│       │   ├── Alerts.jsx
-│       │   ├── Dashboard.jsx
-│       │   ├── Notfound.jsx
-│       │   ├── Productdetails.jsx
-│       │   ├── Products.jsx
-│       │   └── Watchlist.jsx
-│       │
-│       ├── api.js
-│       ├── App.css
-│       ├── App.jsx
-│       ├── index.css
-│       └── main.jsx
+│   ├── src/
+│   │   ├── assets/
+│   │   │   ├── hero.png
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   │
+│   │   ├── components/
+│   │   │   ├── APIerror.jsx
+│   │   │   ├── AppShell.jsx
+│   │   │   └── ThemeToggle.jsx
+│   │   │
+│   │   ├── lib/
+│   │   │   └── watchlist.js
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Alerts.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── Notfound.jsx
+│   │   │   ├── Productdetails.jsx
+│   │   │   ├── Products.jsx
+│   │   │   └── Watchlist.jsx
+│   │   │
+│   │   ├── api.js
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   │
+│   ├── package.json
+│   ├── vite.config.js
+│   └── tailwind.config.js
 │
 ├── plasticprice/
-│   │
-│   ├── allcategories.py
 │   ├── app.py
+│   ├── allcategories.py
 │   ├── fetchprices.py
 │   ├── loadcategories.py
 │   ├── sync_api_ids.py
@@ -343,121 +392,14 @@ HK/
 
 ---
 
-# 🗄️ Data Model
-
-POLYMETRIC uses PostgreSQL to maintain current product information as well as historical pricing data.
-
-### Products
-
-Stores the currently tracked products and their latest prices.
-
-Important information includes:
-
-* Product ID
-* External API ID
-* Product information
-* Current price
-* Last updated timestamp
-
-### Categories
-
-Stores the product categories used by the application.
-
-### Price History
-
-Stores historical price observations.
-
-Conceptually:
-
-```text
-products
-   │
-   │ 1
-   │
-   │
-   │ many
-   ▼
-price_history
-```
-
-Every successful price synchronization can create a historical price record, allowing POLYMETRIC to track price movement instead of only showing the latest price.
-
----
-
-# 📡 API
-
-The FastAPI backend exposes endpoints used by the React frontend and automation pipeline.
-
-## Health / Root
-
-```http
-GET /
-```
-
-Used to verify that the API is running.
-
----
-
-## Products
-
-```http
-GET /products
-```
-
-Returns product information used by the frontend.
-
----
-
-## Categories
-
-```http
-GET /categories
-```
-
-Returns available product categories.
-
----
-
-## Price Synchronization
-
-```http
-POST /sync-prices
-```
-
-Triggers the automated price synchronization process.
-
-The endpoint:
-
-* Calls the external pricing API
-* Matches products using API IDs
-* Updates current prices
-* Records price history
-* Commits the transaction
-* Returns synchronization statistics
-
-Example response:
-
-```json
-{
-  "message": "Sync completed",
-  "updated": 100,
-  "skipped": 5,
-  "total": 105
-}
-```
-
----
-
-# 🚀 Getting Started
+# 🚀 Installation & Setup
 
 ## Prerequisites
-
-Make sure you have:
 
 * Python 3.13+
 * Node.js
 * npm
-* PostgreSQL database
+* PostgreSQL
 * Git
 
 ---
@@ -471,9 +413,7 @@ cd JP
 
 ---
 
-# 🐍 Backend Setup
-
-Navigate to the backend:
+## 2. Backend Setup
 
 ```bash
 cd plasticprice
@@ -485,7 +425,7 @@ Create a virtual environment:
 python -m venv venv
 ```
 
-Activate it on Windows:
+### Windows
 
 ```powershell
 venv\Scripts\activate
@@ -497,19 +437,19 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Run FastAPI:
+Start the API:
 
 ```bash
 py -m uvicorn app:app --reload
 ```
 
-The API will normally be available at:
+The API will be available at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-FastAPI documentation will be available at:
+Interactive API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -517,9 +457,9 @@ http://127.0.0.1:8000/docs
 
 ---
 
-# ⚛️ Frontend Setup
+## 3. Frontend Setup
 
-Open another terminal and navigate to:
+Open another terminal:
 
 ```bash
 cd frontend
@@ -543,7 +483,7 @@ Vite will provide the local development URL in the terminal.
 
 # 🔑 Environment Variables
 
-The backend requires a database connection configuration.
+The backend requires a PostgreSQL database connection.
 
 Example:
 
@@ -551,149 +491,152 @@ Example:
 DATABASE_URL=your_postgresql_connection_string
 ```
 
-Do **not** commit real credentials, database passwords, API keys, or other secrets to GitHub.
+> Never commit real credentials, passwords, API keys or database connection strings to GitHub.
 
-For production deployments, configure secrets through the respective hosting platform's environment-variable settings.
-
----
-
-# 🌍 Deployment
-
-POLYMETRIC is designed as a multi-service application.
-
-### Frontend
-
-The React/Vite frontend is deployed using:
-
-**Vercel**
-
-### Backend
-
-The FastAPI backend is deployed using:
-
-**Render**
-
-### Database
-
-The PostgreSQL database is hosted using:
-
-**Neon**
-
-### Automation
-
-Daily price synchronization is handled using:
-
-**GitHub Actions**
-
-This separation allows the frontend, backend, database, and scheduled automation to operate independently.
+For production deployments, configure environment variables through the respective hosting platform.
 
 ---
 
-# 📊 Application Flow
+# 📡 API Reference
 
-A typical user flow looks like:
+| Method | Endpoint       | Description                                 |
+| :----: | -------------- | ------------------------------------------- |
+|  `GET` | `/`            | API health/root endpoint                    |
+|  `GET` | `/products`    | Retrieve available products                 |
+|  `GET` | `/categories`  | Retrieve product categories                 |
+| `POST` | `/sync-prices` | Synchronize latest prices and store history |
 
-```text
-User
- │
- ▼
-POLYMETRIC Dashboard
- │
- ├── Browse Products
- │
- ├── View Product Details
- │
- ├── Track Price History
- │
- ├── Add Products to Watchlist
- │
- └── Monitor Alerts
+---
+
+## `GET /products`
+
+Returns product information consumed by the frontend.
+
+---
+
+## `GET /categories`
+
+Returns available product categories.
+
+---
+
+## `POST /sync-prices`
+
+Triggers the price synchronization pipeline.
+
+Example:
+
+```bash
+curl -X POST https://jp-pfin.onrender.com/sync-prices
 ```
 
-Meanwhile, the data pipeline operates independently:
+Example response:
 
-```text
-Scheduled GitHub Action
-          │
-          ▼
-    POST /sync-prices
-          │
-          ▼
-     FastAPI Backend
-          │
-          ▼
-   External Price API
-          │
-          ▼
-     PostgreSQL
-          │
-          ▼
-  Updated POLYMETRIC Data
+```json
+{
+  "message": "Sync completed",
+  "updated": 100,
+  "skipped": 5,
+  "total": 105
+}
 ```
 
 ---
 
-# 🔮 Roadmap
+# ☁️ Deployment
 
-POLYMETRIC is intended to grow beyond price tracking.
+POLYMETRIC uses separate services for the major parts of the application.
 
-Potential future modules include:
+| Layer                 | Technology      |
+| --------------------- | --------------- |
+| Frontend              | Vercel          |
+| Backend               | Render          |
+| Database              | Neon PostgreSQL |
+| Automation            | GitHub Actions  |
+| External Pricing Data | CredCo API      |
 
-* 📈 Advanced price analytics
-* 🔔 More sophisticated price alerts
-* 📊 Market trend dashboards
-* 📉 Price movement analysis
-* 📦 Inventory management
-* 🧾 Purchase & sales management
-* 👥 Customer management
-* 💰 Trading and margin analysis
-* 📋 Supplier management
-* 📑 Quotations and invoicing
-* 🏭 Business workflow management
-* 🔐 Multi-user business accounts
-* 🏢 Complete ERP functionality
+This separation keeps the frontend, backend, database and automation pipeline independent.
 
-The long-term objective is to build **a dedicated ERP ecosystem for plastic raw-material traders.**
+---
+
+# 🗺️ Roadmap
+
+POLYMETRIC is currently focused on **price intelligence**.
+
+The long-term roadmap is significantly broader.
+
+### 📈 Price Intelligence
+
+* Advanced price charts
+* Price movement analysis
+* Historical comparisons
+* Market trend analysis
+* More advanced alert conditions
+
+### 📦 Inventory
+
+* Inventory tracking
+* Stock levels
+* Low-stock alerts
+* Material movement
+
+### 🤝 Trading
+
+* Purchase management
+* Sales management
+* Supplier management
+* Customer management
+* Margin calculations
+* Quotations
+
+### 🧾 Business Management
+
+* Invoicing
+* Order management
+* Customer accounts
+* Supplier accounts
+* Trading history
+* Business analytics
+
+### 🏢 Long-Term
+
+**A complete ERP platform built specifically around plastic raw-material trading.**
 
 ---
 
 # 🎯 Vision
 
-POLYMETRIC started with a simple problem:
+POLYMETRIC started with one question:
 
-> **Make plastic raw-material prices easier to understand and track.**
+> **Can the information traders constantly track manually be turned into software?**
 
-The larger vision is much bigger.
-
-From:
+The answer is what this project is becoming.
 
 ```text
-Price Tracking
+PRICE TRACKING
+       │
+       ▼
+PRICE INTELLIGENCE
+       │
+       ▼
+MARKET MONITORING
+       │
+       ▼
+TRADING MANAGEMENT
+       │
+       ▼
+INVENTORY MANAGEMENT
+       │
+       ▼
+BUSINESS MANAGEMENT
+       │
+       ▼
+PLASTIC TRADING ERP
 ```
 
-to:
+The goal isn't simply to show today's price.
 
-```text
-Price Intelligence
-       ↓
-Market Monitoring
-       ↓
-Trading Workflows
-       ↓
-Business Management
-       ↓
-Complete Plastic Trading ERP
-```
-
----
-
-# 💡 Why POLYMETRIC?
-
-Plastic raw-material trading is heavily dependent on constantly changing market prices.
-
-A trader shouldn't have to rely entirely on scattered sources, manual updates, and historical memory to understand what is happening in the market.
-
-POLYMETRIC aims to turn that information into a centralized, accessible and continuously updated system.
+The goal is to eventually build the **digital infrastructure around the entire plastic raw-material trading workflow.**
 
 ---
 
@@ -703,18 +646,17 @@ POLYMETRIC aims to turn that information into a centralized, accessible and cont
 
 B.Tech Computer Science Engineering
 
-Interested in building software that solves real-world business problems.
-
-GitHub:
-
-**https://github.com/HK51104**
+**GitHub:**
+https://github.com/HK51104
 
 ---
 
-## ⭐ Project
+# ⭐ Support
 
 If you find POLYMETRIC interesting, consider giving the repository a ⭐.
 
 ---
 
-### Built with code, curiosity, and a real-world problem. ⚡
+### Built around a real-world problem. Engineered as a product. ⚡
+
+**Till then, keep watching the market. POLYMETRIC is just getting started.**
