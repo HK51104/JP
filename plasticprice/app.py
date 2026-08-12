@@ -98,17 +98,9 @@ def home():
 # ALL PRODUCTS
 # ----------------------------
 @app.get("/products")
-# GET /products
-
-# ↓
-
-# run get_products()
 def get_products():
     conn = get_connection()
-    # open database
-
     cursor = conn.cursor()
-    # create SQL cursor
 
     cursor.execute("""
         SELECT
@@ -117,10 +109,22 @@ def get_products():
             p.product_grade,
             p.current_price,
             p.last_updated,
-            c.category_name
+            c.category_name,
+
+            (
+                SELECT ph.price
+                FROM price_history ph
+                WHERE ph.product_id = p.id
+                  AND ph.recorded_at <= NOW() - INTERVAL '24 hours'
+                ORDER BY ph.recorded_at DESC
+                LIMIT 1
+            ) AS previous_price
+
         FROM products p
+
         LEFT JOIN categories c
             ON p.category_id = c.id
+
         ORDER BY p.id
     """)
 
@@ -129,7 +133,6 @@ def get_products():
     cursor.close()
     conn.close()
 
-    # builds JSON
     return [
         {
             "id": r[0],
@@ -137,14 +140,20 @@ def get_products():
             "product_grade": r[2],
             "current_price": float(r[3]),
             "last_updated": r[4],
-            "category": r[5]
+            "category": r[5],
+
+            "change_pct": (
+                round(
+                    ((float(r[3]) - float(r[6])) / float(r[6])) * 100,
+                    2
+                )
+                if r[6] is not None and float(r[6]) != 0
+                else 0
+            )
         }
         for r in rows
     ]
-
-# ----------------------------
-# SINGLE PRODUCT
-# ----------------------------
+    
 @app.get("/products/{product_id}")
 def get_product(product_id: int):
     conn = get_connection()
