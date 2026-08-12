@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+
 import {
   ArrowLeft,
   ArrowDownRight,
@@ -7,9 +8,19 @@ import {
   Activity,
   TrendingUp,
   TrendingDown,
+  Trophy,
 } from "lucide-react";
 
-import { api, useApi, formatPrice, formatChange, formatRupeeChange, formatLastUpdated, getRelativeTime } from "../api";
+import {
+  api,
+  useApi,
+  formatPrice,
+  formatChange,
+  formatRupeeChange,
+  formatLastUpdated,
+  getRelativeTime,
+} from "../api";
+
 import ApiError from "../components/APIerror";
 
 
@@ -28,6 +39,7 @@ function ChangeValue({ value, showIcon = true }) {
         {showIcon && (
           <ArrowUpRight className="size-4" />
         )}
+
         +{number.toFixed(2)}%
       </span>
     );
@@ -39,6 +51,7 @@ function ChangeValue({ value, showIcon = true }) {
         {showIcon && (
           <ArrowDownRight className="size-4" />
         )}
+
         {number.toFixed(2)}%
       </span>
     );
@@ -83,10 +96,6 @@ function Metric({ label, value, sub }) {
 --------------------------------------------------
 PRICE HISTORY CHART
 --------------------------------------------------
-
-Simple SVG chart.
-
-No external chart library required.
 */
 
 function PriceChart({ history }) {
@@ -154,10 +163,12 @@ function PriceChart({ history }) {
 
   const areaPoints = [
     `${paddingLeft},${height - paddingBottom}`,
+
     ...points.map(
       (point) =>
         `${point.x},${point.y}`
     ),
+
     `${points[points.length - 1].x},${
       height - paddingBottom
     }`,
@@ -170,7 +181,6 @@ function PriceChart({ history }) {
         className="w-full min-w-140 h-72"
         preserveAspectRatio="none"
       >
-        {/* Horizontal grid lines */}
 
         {[0, 1, 2, 3, 4].map(
           (line) => {
@@ -187,6 +197,7 @@ function PriceChart({ history }) {
 
             return (
               <g key={line}>
+
                 <line
                   x1={paddingLeft}
                   x2={width - paddingRight}
@@ -205,20 +216,17 @@ function PriceChart({ history }) {
                 >
                   ₹{value.toFixed(0)}
                 </text>
+
               </g>
             );
           }
         )}
-
-        {/* Area */}
 
         <polygon
           points={areaPoints}
           fill="currentColor"
           className="text-primary opacity-10"
         />
-
-        {/* Price line */}
 
         <polyline
           points={linePoints}
@@ -229,8 +237,6 @@ function PriceChart({ history }) {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-
-        {/* Data points */}
 
         {points.map(
           (point, index) => (
@@ -245,8 +251,6 @@ function PriceChart({ history }) {
           )
         )}
 
-        {/* Start label */}
-
         <text
           x={paddingLeft}
           y={height - 12}
@@ -257,8 +261,6 @@ function PriceChart({ history }) {
             history[0]?.time
           )}
         </text>
-
-        {/* End label */}
 
         <text
           x={width - paddingRight}
@@ -273,6 +275,7 @@ function PriceChart({ history }) {
             ]?.time
           )}
         </text>
+
       </svg>
     </div>
   );
@@ -308,12 +311,245 @@ function formatChartDate(value) {
 
 /*
 --------------------------------------------------
+SUPPLIER COMPARISON
+--------------------------------------------------
+*/
+
+function SupplierComparison({
+  comparison,
+  loading,
+  error,
+}) {
+  if (loading) {
+    return (
+      <section>
+
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy className="size-4 text-primary" />
+
+          <h2 className="text-sm font-semibold">
+            Supplier Comparison
+          </h2>
+        </div>
+
+        <div className="bg-card border border-border rounded-md p-5">
+
+          <div className="space-y-3">
+
+            <div className="h-4 w-40 bg-accent animate-pulse rounded" />
+
+            <div className="h-10 w-full bg-accent animate-pulse rounded" />
+
+            <div className="h-10 w-full bg-accent animate-pulse rounded" />
+
+            <div className="h-10 w-full bg-accent animate-pulse rounded" />
+
+          </div>
+
+        </div>
+
+      </section>
+    );
+  }
+
+  if (error) {
+    return null;
+  }
+
+  const suppliers =
+    comparison?.suppliers || [];
+
+  /*
+  Don't show the section if there is
+  nothing meaningful to compare.
+  */
+
+  if (suppliers.length < 2) {
+    return null;
+  }
+
+  const lowestPrice =
+    comparison?.lowestPrice != null
+      ? Number(comparison.lowestPrice)
+      : Math.min(
+          ...suppliers.map(
+            (supplier) =>
+              Number(supplier.price) || 0
+          )
+        );
+
+  return (
+    <section>
+
+      <div className="flex items-center justify-between gap-4 mb-4">
+
+        <div className="flex items-center gap-2">
+
+          <Trophy className="size-4 text-primary" />
+
+          <h2 className="text-sm font-semibold">
+            Supplier Comparison
+          </h2>
+
+        </div>
+
+        <div className="text-[10px] font-display tracking-widest text-muted-foreground">
+          {suppliers.length} SUPPLIERS
+        </div>
+
+      </div>
+
+
+      <div className="bg-card border border-border rounded-md overflow-hidden">
+
+        {/* Table header */}
+
+        <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 border-b border-border text-[10px] font-display tracking-widest text-muted-foreground">
+
+          <div>
+            SUPPLIER
+          </div>
+
+          <div className="text-right">
+            PRICE
+          </div>
+
+          <div className="text-right">
+            24H
+          </div>
+
+        </div>
+
+
+        {/* Suppliers */}
+
+        <div className="divide-y divide-border">
+
+          {suppliers.map(
+            (supplier) => {
+              const supplierPrice =
+                Number(
+                  supplier.price
+                ) || 0;
+
+              const isLowest =
+                Math.abs(
+                  supplierPrice -
+                    lowestPrice
+                ) < 0.001;
+
+              const supplierChange =
+                Number(
+                  supplier.changePct
+                ) || 0;
+
+              return (
+                <Link
+                  key={supplier.id}
+                  to={`/products/${supplier.id}`}
+                  className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-4 py-3 hover:bg-accent/50 transition-colors"
+                >
+
+                  <div className="min-w-0">
+
+                    <div className="flex items-center gap-2">
+
+                      <span className="text-sm font-medium truncate">
+                        {supplier.supplier}
+                      </span>
+
+                      {isLowest && (
+                        <span className="shrink-0 text-[9px] font-display tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                          LOWEST
+                        </span>
+                      )}
+
+                    </div>
+
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {supplier.grade}
+                    </div>
+
+                  </div>
+
+
+                  <div className="text-sm font-display font-semibold text-right whitespace-nowrap">
+                    {formatPrice(
+                      supplierPrice
+                    )}
+                  </div>
+
+
+                  <div className="text-xs font-display text-right whitespace-nowrap">
+
+                    <ChangeValue
+                      value={
+                        supplierChange
+                      }
+                      showIcon={false}
+                    />
+
+                  </div>
+
+                </Link>
+              );
+            }
+          )}
+
+        </div>
+
+
+        {/* Lowest price summary */}
+
+        <div className="border-t border-border px-4 py-4 bg-accent/20">
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+
+            <div>
+
+              <div className="text-[10px] font-display tracking-widest text-muted-foreground">
+                LOWEST AVAILABLE PRICE
+              </div>
+
+              <div className="font-display text-lg font-bold mt-1">
+                {formatPrice(
+                  lowestPrice
+                )}
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  /kg
+                </span>
+              </div>
+
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Based on currently available supplier records
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+  );
+}
+
+
+/*
+--------------------------------------------------
 PRODUCT DETAILS
 --------------------------------------------------
 */
 
 export default function ProductDetails() {
   const { id } = useParams();
+
+
+  /*
+  PRODUCT
+  */
 
   const {
     data: product,
@@ -323,6 +559,11 @@ export default function ProductDetails() {
     () => api.product(id),
     [id]
   );
+
+
+  /*
+  HISTORY
+  */
 
   const {
     data: history,
@@ -335,26 +576,40 @@ export default function ProductDetails() {
 
 
   /*
-  ----------------------------------------------
+  SUPPLIER COMPARISON
+  */
+
+  const {
+    data: comparison,
+    error: comparisonError,
+    loading: comparisonLoading,
+  } = useApi(
+    () => api.comparison(id),
+    [id]
+  );
+
+
+  /*
   LOADING
-  ----------------------------------------------
   */
 
   if (productLoading) {
     return (
       <div className="space-y-4">
+
         <div className="h-4 w-32 bg-accent animate-pulse rounded" />
+
         <div className="h-10 w-64 bg-accent animate-pulse rounded" />
+
         <div className="h-72 bg-accent animate-pulse rounded-md" />
+
       </div>
     );
   }
 
 
   /*
-  ----------------------------------------------
   ERROR
-  ----------------------------------------------
   */
 
   if (productError) {
@@ -373,9 +628,8 @@ export default function ProductDetails() {
   }
 
 
-  const price = Number(
-    product.price
-  ) || 0;
+  const price =
+    Number(product.price) || 0;
 
   const previousPrice =
     product.previousPrice != null
@@ -396,9 +650,7 @@ export default function ProductDetails() {
 
 
   /*
-  ----------------------------------------------
   HISTORY
-  ----------------------------------------------
   */
 
   const priceHistory =
@@ -408,9 +660,7 @@ export default function ProductDetails() {
 
 
   /*
-  ----------------------------------------------
   HIGH / LOW
-  ----------------------------------------------
   */
 
   const historyPrices =
@@ -440,9 +690,7 @@ export default function ProductDetails() {
 
 
   /*
-  ----------------------------------------------
   DIRECTION
-  ----------------------------------------------
   */
 
   const direction =
@@ -456,22 +704,19 @@ export default function ProductDetails() {
   return (
     <div className="space-y-8">
 
-      {/* ---------------------------------------
-          BACK
-      ---------------------------------------- */}
+      {/* BACK */}
 
       <Link
         to="/products"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
+
         Back to Products
       </Link>
 
 
-      {/* ---------------------------------------
-          PRODUCT HEADER
-      ---------------------------------------- */}
+      {/* PRODUCT HEADER */}
 
       <section className="bg-card border border-border rounded-md">
 
@@ -508,9 +753,11 @@ export default function ProductDetails() {
               </div>
 
               <div className="flex lg:justify-end mt-3">
+
                 <ChangeValue
                   value={changePct}
                 />
+
               </div>
 
             </div>
@@ -518,9 +765,7 @@ export default function ProductDetails() {
           </div>
 
 
-          {/* -----------------------------------
-              QUICK CHANGE
-          ------------------------------------ */}
+          {/* QUICK CHANGE */}
 
           <div className="border-t border-border mt-6 pt-5">
 
@@ -562,12 +807,14 @@ export default function ProductDetails() {
 
 
               <div className="text-xs text-muted-foreground flex items-center gap-2">
+
                 <Clock className="size-3.5" />
 
                 Updated{" "}
                 {getRelativeTime(
                   product.lastUpdated
                 )}
+
               </div>
 
             </div>
@@ -579,18 +826,18 @@ export default function ProductDetails() {
       </section>
 
 
-      {/* ---------------------------------------
-          PRICE METRICS
-      ---------------------------------------- */}
+      {/* PRICE METRICS */}
 
       <section>
 
         <div className="flex items-center gap-2 mb-4">
+
           <Activity className="size-4 text-primary" />
 
           <h2 className="text-sm font-semibold">
             Price Intelligence
           </h2>
+
         </div>
 
 
@@ -606,7 +853,6 @@ export default function ProductDetails() {
             sub="Compared with 24h ago"
           />
 
-
           <Metric
             label="7D CHANGE"
             value={
@@ -616,7 +862,6 @@ export default function ProductDetails() {
             }
             sub="Compared with 7d ago"
           />
-
 
           <Metric
             label="PREVIOUS PRICE"
@@ -629,7 +874,6 @@ export default function ProductDetails() {
             }
             sub="Previous recorded price"
           />
-
 
           <Metric
             label="PRICE CHANGE"
@@ -646,15 +890,23 @@ export default function ProductDetails() {
       </section>
 
 
-      {/* ---------------------------------------
-          HISTORY CHART
-      ---------------------------------------- */}
+      {/* SUPPLIER COMPARISON */}
+
+      <SupplierComparison
+        comparison={comparison}
+        loading={comparisonLoading}
+        error={comparisonError}
+      />
+
+
+      {/* HISTORY CHART */}
 
       <section className="bg-card border border-border rounded-md">
 
         <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 
           <div>
+
             <h2 className="text-sm font-semibold">
               Price History
             </h2>
@@ -662,6 +914,7 @@ export default function ProductDetails() {
             <p className="text-xs text-muted-foreground mt-1">
               Historical recorded prices
             </p>
+
           </div>
 
 
@@ -703,9 +956,7 @@ export default function ProductDetails() {
       </section>
 
 
-      {/* ---------------------------------------
-          HISTORY STATISTICS
-      ---------------------------------------- */}
+      {/* HISTORY STATISTICS */}
 
       <section>
 
@@ -755,9 +1006,7 @@ export default function ProductDetails() {
       </section>
 
 
-      {/* ---------------------------------------
-          LAST UPDATED
-      ---------------------------------------- */}
+      {/* LAST UPDATED */}
 
       <section className="border border-border rounded-md p-4 bg-card">
 

@@ -183,7 +183,56 @@ export const api = {
           : []
       ),
 
+/*
+SUPPLIER COMPARISON
+*/
 
+comparison: (id) =>
+  getJSON(`/products/${id}/comparison`)
+    .then((data) => ({
+      product: data?.product
+        ? normalizeProduct(data.product)
+        : null,
+
+      suppliers: Array.isArray(data?.suppliers)
+        ? data.suppliers.map((supplier) => ({
+            id: supplier.id,
+
+            supplier:
+              supplier.supplier ??
+              supplier.name ??
+              "Unknown Supplier",
+
+            grade:
+              supplier.grade ??
+              "",
+
+            price:
+              Number(supplier.price) || 0,
+
+            changePct:
+              Number(
+                supplier.changePct ??
+                supplier.change_pct ??
+                0
+              ),
+
+            lastUpdated:
+              supplier.lastUpdated ??
+              supplier.last_updated ??
+              null,
+          }))
+        : [],
+
+      lowestPrice:
+        data?.lowestPrice != null
+          ? Number(data.lowestPrice)
+          : null,
+
+      supplierCount:
+        Number(data?.supplierCount) ||
+        0,
+    })),
   /*
   STATS
   */
@@ -197,7 +246,7 @@ export const api = {
   */
 
  topMovers: () =>
-  request("/top-movers"),
+  getJSON("/top-movers"),
 
 
   /*
@@ -526,3 +575,4 @@ export function getRelativeTime(value) {
 
   return `${days}d ago`;
 }
+
