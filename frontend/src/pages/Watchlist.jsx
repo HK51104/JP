@@ -24,7 +24,7 @@ import {
 
 import { useApi, api } from "../api";
 import ApiError from "../components/APIerror";
-import { useWatchlist } from "../hooks/useWatchlist";
+import { useWatchlist } from "../lib/useWatchlist";
 
 
 function ChangeValue({ value }) {
