@@ -5,7 +5,7 @@ Conclusion of main.jsx:
   It loads the root component (<App />) along with global styles, routing, and any providers (if present).
   From this point onward, React controls the entire UI.
 */
-
+import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import React from "react";
 // Import the React library.
@@ -51,6 +51,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         {/* react calls app() function */}
         </BrowserRouter>
       <SpeedInsights />
+      <Analytics />
   </React.StrictMode>
 );
 
