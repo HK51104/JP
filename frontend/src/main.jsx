@@ -50,8 +50,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <App />
         {/* react calls app() function */}
         </BrowserRouter>
-      <SpeedInsights/>
-      <Analytics/>
+      <SpeedInsights />
+      <Analytics />
   </React.StrictMode>
 );
 
