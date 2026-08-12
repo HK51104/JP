@@ -1,375 +1,467 @@
-
-/*
-  Alerts.jsx
-
-  Responsibilities:
-  - Fetch products from the backend.
-  - Create price alerts.
-  - Support above/below conditions.
-  - Support Email, SMS and WhatsApp notification channels.
-  - Display active alerts.
-  - Delete alerts.
-  - Responsive across mobile, tablet and desktop.
-*/
-
-import { useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-
+import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
-  Mail,
-  MessageSquare,
-  Smartphone,
+  BellRing,
   Trash2,
-  ArrowDown,
-  ArrowUp,
   Plus,
-  ExternalLink,
+  AlertTriangle,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 
-import { api, useApi } from "../api";
-import { useAlerts } from "../lib/watchlist";
+import { api, useApi, formatPrice } from "../api";
 import ApiError from "../components/APIerror";
 
 
-const CHANNELS = [
-  {
-    k: "email",
-    icon: Mail,
-    label: "Email",
-  },
-  {
-    k: "sms",
-    icon: Smartphone,
-    label: "SMS",
-  },
-  {
-    k: "whatsapp",
-    icon: MessageSquare,
-    label: "WhatsApp",
-  },
-];
+const ALERTS_KEY = "polymetric_price_alerts";
 
 
-function AlertDirection({ direction }) {
-  const isAbove = direction === "above";
+/*
+--------------------------------------------------
+LOCAL STORAGE
+--------------------------------------------------
+*/
 
-  return (
-    <span
-      className={`
-        inline-flex
-        items-center
-        gap-1
-        text-[10px]
-        sm:text-xs
-        font-display
-        ${
-          isAbove
-            ? "text-up"
-            : "text-down"
-        }
-      `}
-    >
-      {isAbove ? (
-        <ArrowUp className="size-3" />
-      ) : (
-        <ArrowDown className="size-3" />
-      )}
+function readAlerts() {
+  try {
+    const stored =
+      localStorage.getItem(ALERTS_KEY);
 
-      {isAbove ? "ABOVE" : "BELOW"}
-    </span>
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+
+function saveAlerts(alerts) {
+  localStorage.setItem(
+    ALERTS_KEY,
+    JSON.stringify(alerts)
   );
 }
 
 
-function AlertCard({ alert, product, onRemove }) {
+/*
+--------------------------------------------------
+ALERT CONDITION
+--------------------------------------------------
+*/
+
+function isTriggered(alert, product) {
+  if (!product) return false;
+
+  const price =
+    Number(product.price) || 0;
+
+  const change =
+    Number(product.changePct) || 0;
+
+  const target =
+    Number(alert.target) || 0;
+
+  if (alert.condition === "above") {
+    return price >= target;
+  }
+
+  if (alert.condition === "below") {
+    return price <= target;
+  }
+
+  if (alert.condition === "change_above") {
+    return change >= target;
+  }
+
+  if (alert.condition === "change_below") {
+    return change <= target;
+  }
+
+  return false;
+}
+
+
+/*
+--------------------------------------------------
+CONDITION LABEL
+--------------------------------------------------
+*/
+
+function conditionLabel(alert) {
+  if (alert.condition === "above") {
+    return `Price ≥ ₹${Number(alert.target).toFixed(2)}`;
+  }
+
+  if (alert.condition === "below") {
+    return `Price ≤ ₹${Number(alert.target).toFixed(2)}`;
+  }
+
+  if (alert.condition === "change_above") {
+    return `24H change ≥ +${Number(alert.target).toFixed(2)}%`;
+  }
+
+  if (alert.condition === "change_below") {
+    return `24H change ≤ ${Number(alert.target).toFixed(2)}%`;
+  }
+
+  return "Unknown condition";
+}
+
+
+/*
+--------------------------------------------------
+ALERT CARD
+--------------------------------------------------
+*/
+
+function AlertCard({
+  alert,
+  product,
+  triggered,
+  onDelete,
+}) {
   return (
     <div
-      className="
-        bg-background
-        border
-        border-border
-        rounded-lg
-        p-4
-        transition-colors
-        hover:bg-accent/30
-      "
+      className={`bg-card border rounded-md p-4 ${
+        triggered
+          ? "border-primary"
+          : "border-border"
+      }`}
     >
-      <div
-        className="
-          flex
-          flex-col
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
-          gap-4
-        "
-      >
 
-        {/* PRODUCT + ALERT INFORMATION */}
+      <div className="flex items-start gap-3">
 
-        <div className="min-w-0 flex-1">
-
-          <div
-            className="
-              flex
-              items-start
-              gap-3
-            "
-          >
-
-            <div
-              className="
-                size-9
-                shrink-0
-                rounded-md
-                bg-primary/10
-                flex
-                items-center
-                justify-center
-              "
-            >
-              <Bell className="size-4 text-primary" />
-            </div>
-
-
-            <div className="min-w-0 flex-1">
-
-              <div
-                className="
-                  flex
-                  flex-wrap
-                  items-center
-                  gap-x-2
-                  gap-y-1
-                "
-              >
-
-                <Link
-                  to={`/products/${product.id}`}
-                  className="
-                    text-sm
-                    font-semibold
-                    truncate
-                    hover:text-primary
-                    transition-colors
-                  "
-                >
-                  {product.name}
-                </Link>
-
-
-                <span
-                  className="
-                    text-[10px]
-                    sm:text-xs
-                    text-muted-foreground
-                    font-mono
-                  "
-                >
-                  {product.grade}
-                </span>
-
-              </div>
-
-
-              <div
-                className="
-                  mt-1.5
-                  flex
-                  flex-wrap
-                  items-center
-                  gap-x-2
-                  gap-y-1
-                  text-xs
-                  text-muted-foreground
-                "
-              >
-
-                <span>
-                  Notify when price
-                </span>
-
-                <AlertDirection
-                  direction={alert.direction}
-                />
-
-                <span
-                  className="
-                    font-display
-                    text-foreground
-                    font-semibold
-                  "
-                >
-                  ₹{Number(alert.threshold).toFixed(2)}
-                </span>
-
-              </div>
-
-
-              <div
-                className="
-                  mt-2
-                  flex
-                  flex-wrap
-                  gap-1.5
-                "
-              >
-
-                {(alert.channels || []).map(
-                  (channel) => {
-                    const channelInfo =
-                      CHANNELS.find(
-                        (c) => c.k === channel
-                      );
-
-                    if (!channelInfo) {
-                      return null;
-                    }
-
-                    const Icon =
-                      channelInfo.icon;
-
-                    return (
-                      <span
-                        key={channel}
-                        className="
-                          inline-flex
-                          items-center
-                          gap-1
-                          px-2
-                          py-1
-                          rounded
-                          bg-secondary
-                          text-[10px]
-                          text-muted-foreground
-                        "
-                      >
-                        <Icon className="size-3" />
-
-                        {channelInfo.label}
-                      </span>
-                    );
-                  }
-                )}
-
-              </div>
-
-            </div>
-
-          </div>
-
+        <div
+          className={`size-9 rounded-md flex items-center justify-center shrink-0 ${
+            triggered
+              ? "bg-primary/10 text-primary"
+              : "bg-accent text-muted-foreground"
+          }`}
+        >
+          {triggered ? (
+            <CheckCircle2 className="size-4" />
+          ) : (
+            <BellRing className="size-4" />
+          )}
         </div>
 
 
-        {/* CURRENT PRICE + DELETE */}
+        <div className="min-w-0 flex-1">
 
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            sm:justify-end
-            gap-4
-            sm:min-w-44
-          "
-        >
+          <div className="flex items-start justify-between gap-3">
 
-          <div className="sm:text-right">
+            <div className="min-w-0">
 
-            <div
-              className="
-                text-[9px]
-                sm:text-[10px]
-                font-display
-                tracking-widest
-                text-muted-foreground
-              "
-            >
-              CURRENT PRICE
+              <div className="font-medium text-sm truncate">
+                {product?.name ||
+                  "Unknown product"}
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-1">
+                {product?.grade ||
+                  "Product unavailable"}
+              </div>
+
             </div>
-
-            <div
-              className="
-                font-display
-                text-base
-                sm:text-lg
-                font-bold
-                mt-0.5
-              "
-            >
-              ₹{Number(product.currentPrice || 0).toFixed(2)}
-            </div>
-
-          </div>
-
-
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-            "
-          >
-
-            <Link
-              to={`/products/${product.id}`}
-              title="View product"
-              aria-label={`View ${product.name}`}
-              className="
-                size-9
-                rounded-md
-                border
-                border-border
-                flex
-                items-center
-                justify-center
-                text-muted-foreground
-                hover:text-primary
-                hover:border-primary
-                transition-colors
-              "
-            >
-              <ExternalLink className="size-3.5" />
-            </Link>
 
 
             <button
               type="button"
-              onClick={() => onRemove(alert.id)}
-              title="Delete alert"
-              aria-label={`Delete alert for ${product.name}`}
-              className="
-                size-9
-                rounded-md
-                border
-                border-border
-                flex
-                items-center
-                justify-center
-                text-muted-foreground
-                hover:text-down
-                hover:border-down
-                transition-colors
-              "
+              onClick={() =>
+                onDelete(alert.id)
+              }
+              className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-down hover:bg-down/10 transition-colors shrink-0"
+              aria-label="Delete alert"
             >
               <Trash2 className="size-3.5" />
             </button>
 
           </div>
 
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+
+            <span className="px-2.5 py-1 rounded-md bg-accent text-xs font-display">
+              {conditionLabel(alert)}
+            </span>
+
+            {triggered && (
+              <span className="px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
+                TRIGGERED
+              </span>
+            )}
+
+          </div>
+
+
+          {product && (
+            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+
+              <span className="text-xs text-muted-foreground">
+                Current
+              </span>
+
+              <span className="font-display font-semibold text-sm">
+                {formatPrice(product.price)}
+              </span>
+
+            </div>
+          )}
+
         </div>
 
       </div>
+
     </div>
   );
 }
 
 
+/*
+--------------------------------------------------
+CREATE ALERT FORM
+--------------------------------------------------
+*/
+
+function CreateAlert({
+  products,
+  onCreate,
+  onCancel,
+}) {
+  const [productId, setProductId] =
+    useState(
+      products[0]
+        ? String(products[0].id)
+        : ""
+    );
+
+  const [condition, setCondition] =
+    useState("above");
+
+  const [target, setTarget] =
+    useState("");
+
+
+  const selectedProduct =
+    products.find(
+      (product) =>
+        String(product.id) ===
+        String(productId)
+    );
+
+
+  function submit(event) {
+    event.preventDefault();
+
+    if (!productId) return;
+
+    if (
+      target === "" ||
+      !Number.isFinite(
+        Number(target)
+      )
+    ) {
+      return;
+    }
+
+    onCreate({
+      productId,
+      condition,
+      target: Number(target),
+    });
+  }
+
+
+  return (
+    <form
+      onSubmit={submit}
+      className="bg-card border border-border rounded-md p-5"
+    >
+
+      <div className="flex items-center justify-between mb-5">
+
+        <div>
+
+          <h2 className="text-sm font-semibold">
+            Create Alert
+          </h2>
+
+          <p className="text-xs text-muted-foreground mt-1">
+            Get notified when a market condition
+            is reached.
+          </p>
+
+        </div>
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="size-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-accent"
+        >
+          <X className="size-4" />
+        </button>
+
+      </div>
+
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
+        {/* PRODUCT */}
+
+        <div>
+
+          <label className="block text-[10px] font-display tracking-widest text-muted-foreground mb-2">
+            PRODUCT
+          </label>
+
+          <select
+            value={productId}
+            onChange={(event) =>
+              setProductId(
+                event.target.value
+              )
+            }
+            className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary"
+          >
+            {products.map(
+              (product) => (
+                <option
+                  key={product.id}
+                  value={product.id}
+                >
+                  {product.name} ·{" "}
+                  {product.grade}
+                </option>
+              )
+            )}
+          </select>
+
+        </div>
+
+
+        {/* CONDITION */}
+
+        <div>
+
+          <label className="block text-[10px] font-display tracking-widest text-muted-foreground mb-2">
+            CONDITION
+          </label>
+
+          <select
+            value={condition}
+            onChange={(event) =>
+              setCondition(
+                event.target.value
+              )
+            }
+            className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary"
+          >
+            <option value="above">
+              Price goes above
+            </option>
+
+            <option value="below">
+              Price goes below
+            </option>
+
+            <option value="change_above">
+              24H change exceeds
+            </option>
+
+            <option value="change_below">
+              24H change falls below
+            </option>
+          </select>
+
+        </div>
+
+
+        {/* TARGET */}
+
+        <div>
+
+          <label className="block text-[10px] font-display tracking-widest text-muted-foreground mb-2">
+            TARGET
+          </label>
+
+          <div className="relative">
+
+            <input
+              type="number"
+              step="0.01"
+              value={target}
+              onChange={(event) =>
+                setTarget(
+                  event.target.value
+                )
+              }
+              placeholder={
+                condition ===
+                  "change_above" ||
+                condition ===
+                  "change_below"
+                  ? "5"
+                  : selectedProduct
+                    ? String(
+                        selectedProduct.price
+                      )
+                    : "150"
+              }
+              className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary"
+            />
+
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              {condition ===
+                  "change_above" ||
+                condition ===
+                  "change_below"
+                ? "%"
+                : "₹"}
+            </span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div className="flex justify-end gap-2 mt-5">
+
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-md border border-border text-xs hover:bg-accent transition-colors"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+        >
+          Create Alert
+        </button>
+
+      </div>
+
+    </form>
+  );
+}
+
+
+/*
+--------------------------------------------------
+ALERTS PAGE
+--------------------------------------------------
+*/
+
 export default function Alerts() {
-
-  const [params] = useSearchParams();
-
 
   const {
     data: products,
@@ -381,750 +473,349 @@ export default function Alerts() {
   );
 
 
-  const {
+  const [
     alerts,
-    add,
-    remove,
-  } = useAlerts();
+    setAlerts,
+  ] = useState(readAlerts);
 
 
-  const PRODUCTS = products || [];
+  const [
+    creating,
+    setCreating,
+  ] = useState(false);
 
 
-  const initialPid =
-    params.get("productId") ||
-    PRODUCTS[0]?.id ||
-    "";
+  /*
+  ----------------------------------------------
+  SAVE ALERTS
+  ----------------------------------------------
+  */
+
+  useEffect(() => {
+    saveAlerts(alerts);
+  }, [alerts]);
 
 
-  const [pid, setPid] =
-    useState(initialPid);
+  const productList =
+    Array.isArray(products)
+      ? products
+      : [];
 
 
-  const [direction, setDirection] =
-    useState("below");
+  /*
+  ----------------------------------------------
+  PRODUCT LOOKUP
+  ----------------------------------------------
+  */
+
+  const productMap =
+    useMemo(() => {
+
+      return new Map(
+        productList.map(
+          (product) => [
+            String(product.id),
+            product,
+          ]
+        )
+      );
+
+    }, [productList]);
 
 
-  const [threshold, setThreshold] =
-    useState("");
+  /*
+  ----------------------------------------------
+  TRIGGERED ALERTS
+  ----------------------------------------------
+  */
+
+  const enrichedAlerts =
+    useMemo(() => {
+
+      return alerts.map(
+        (alert) => {
+
+          const product =
+            productMap.get(
+              String(
+                alert.productId
+              )
+            );
+
+          return {
+            ...alert,
+            product,
+            triggered:
+              isTriggered(
+                alert,
+                product
+              ),
+          };
+
+        }
+      );
+
+    }, [
+      alerts,
+      productMap,
+    ]);
 
 
-  const [channels, setChannels] =
-    useState(["email"]);
+  /*
+  ----------------------------------------------
+  CREATE
+  ----------------------------------------------
+  */
+
+  function createAlert(data) {
+
+    const newAlert = {
+      id:
+        `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}`,
+
+      productId:
+        String(data.productId),
+
+      condition:
+        data.condition,
+
+      target:
+        Number(data.target),
+
+      createdAt:
+        new Date().toISOString(),
+    };
 
 
-  const toggleChan = (channel) => {
-
-    setChannels((previous) =>
-      previous.includes(channel)
-        ? previous.filter(
-            (item) => item !== channel
-          )
-        : [...previous, channel]
+    setAlerts(
+      (current) => [
+        newAlert,
+        ...current,
+      ]
     );
 
-  };
+    setCreating(false);
+  }
 
 
-  const submit = (event) => {
+  /*
+  ----------------------------------------------
+  DELETE
+  ----------------------------------------------
+  */
 
-    event.preventDefault();
-
-
-    const value =
-      parseFloat(threshold);
-
-
-    if (!value || value <= 0) {
-      alert("Enter a valid threshold");
-      return;
-    }
-
-
-    if (!pid) {
-      alert("Select a product");
-      return;
-    }
+  function deleteAlert(id) {
+    setAlerts(
+      (current) =>
+        current.filter(
+          (alert) =>
+            alert.id !== id
+        )
+    );
+  }
 
 
-    if (channels.length === 0) {
-      alert("Pick at least one channel");
-      return;
-    }
-
-
-    add({
-      productId: pid,
-      threshold: value,
-      direction,
-      channels,
-    });
-
-
-    setThreshold("");
-
-    alert("Alert created");
-
-  };
-
+  /*
+  ----------------------------------------------
+  LOADING
+  ----------------------------------------------
+  */
 
   if (loading) {
-
     return (
-      <div className="w-full min-w-0 animate-pulse">
+      <div className="space-y-4">
 
-        <div className="mb-8">
+        <div className="h-8 w-40 bg-accent animate-pulse rounded" />
 
-          <div className="h-7 w-36 bg-secondary rounded" />
+        <div className="h-24 bg-accent animate-pulse rounded-md" />
 
-          <div className="h-4 w-72 max-w-full bg-secondary rounded mt-2" />
-
-        </div>
-
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          <div className="h-96 bg-card border border-border rounded-lg" />
-
-          <div className="h-96 bg-card border border-border rounded-lg" />
-
-        </div>
+        <div className="h-64 bg-accent animate-pulse rounded-md" />
 
       </div>
     );
-
   }
 
+
+  /*
+  ----------------------------------------------
+  ERROR
+  ----------------------------------------------
+  */
 
   if (error) {
-    return <ApiError error={error} />;
+    return (
+      <ApiError error={error} />
+    );
   }
 
 
+  const triggeredCount =
+    enrichedAlerts.filter(
+      (alert) =>
+        alert.triggered
+    ).length;
+
+
+  /*
+  ----------------------------------------------
+  MAIN
+  ----------------------------------------------
+  */
+
   return (
-    <div className="w-full min-w-0">
+    <div className="space-y-6">
 
-      {/* =====================================================
-          PAGE HEADER
-      ====================================================== */}
 
-      <div
-        className="
-          mb-6
-          sm:mb-8
-          flex
-          flex-col
-          sm:flex-row
-          sm:items-end
-          sm:justify-between
-          gap-3
-        "
-      >
+      {/* HEADER */}
+
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
 
         <div>
 
           <div className="flex items-center gap-2">
 
-            <Bell
-              className="
-                size-5
-                sm:size-6
-                text-primary
-              "
-            />
+            <BellRing className="size-5 text-primary" />
 
-            <h1
-              className="
-                text-2xl
-                sm:text-3xl
-                font-bold
-                tracking-tight
-              "
-            >
+            <h1 className="text-2xl font-bold tracking-tight">
               Price Alerts
             </h1>
 
           </div>
 
-
-          <p
-            className="
-              text-xs
-              sm:text-sm
-              text-muted-foreground
-              mt-1
-            "
-          >
-            Get notified when a polymer crosses your target price.
+          <p className="text-sm text-muted-foreground mt-1">
+            Monitor products and get notified when
+            your conditions are reached.
           </p>
 
         </div>
 
 
-        <div
-          className="
-            text-[10px]
-            sm:text-xs
-            font-display
-            text-muted-foreground
-          "
+        <button
+          type="button"
+          onClick={() =>
+            setCreating(true)
+          }
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
         >
-          {alerts.length}{" "}
-          {alerts.length === 1
-            ? "ACTIVE ALERT"
-            : "ACTIVE ALERTS"}
-        </div>
+          <Plus className="size-4" />
+          Create Alert
+        </button>
 
       </div>
 
 
-      {/* =====================================================
-          MAIN GRID
-      ====================================================== */}
+      {/* TRIGGERED NOTICE */}
 
-      <div
-        className="
-          grid
-          grid-cols-1
-          lg:grid-cols-2
-          gap-5
-          lg:gap-6
-          items-start
-        "
-      >
+      {triggeredCount > 0 && (
+        <div className="border border-primary/40 bg-primary/5 rounded-md p-4 flex items-start gap-3">
 
-        {/* ===================================================
-            CREATE ALERT
-        ==================================================== */}
+          <AlertTriangle className="size-5 text-primary shrink-0 mt-0.5" />
 
-        <form
-          onSubmit={submit}
-          className="
-            bg-card
-            border
-            border-border
-            rounded-lg
-            p-4
-            sm:p-5
-            space-y-5
-          "
-        >
+          <div>
 
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-              pb-3
-              border-b
-              border-border
-            "
-          >
-
-            <div
-              className="
-                size-8
-                rounded-md
-                bg-primary/10
-                flex
-                items-center
-                justify-center
-              "
-            >
-              <Plus className="size-4 text-primary" />
+            <div className="text-sm font-semibold">
+              {triggeredCount}{" "}
+              {triggeredCount === 1
+                ? "alert has"
+                : "alerts have"}{" "}
+              been triggered.
             </div>
 
-
-            <div>
-
-              <h2 className="text-sm font-semibold">
-                New Alert
-              </h2>
-
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Set a price target for any tracked grade.
-              </p>
-
+            <div className="text-xs text-muted-foreground mt-1">
+              Review the triggered alerts below.
             </div>
 
           </div>
 
-
-          {/* PRODUCT */}
-
-          <div>
-
-            <label
-              htmlFor="alert-product"
-              className="
-                text-[10px]
-                font-display
-                tracking-widest
-                text-muted-foreground
-              "
-            >
-              PRODUCT
-            </label>
+        </div>
+      )}
 
 
-            <select
-              id="alert-product"
-              value={pid}
-              onChange={(event) =>
-                setPid(event.target.value)
+      {/* CREATE FORM */}
+
+      {creating && (
+        <CreateAlert
+          products={productList}
+          onCreate={createAlert}
+          onCancel={() =>
+            setCreating(false)
+          }
+        />
+      )}
+
+
+      {/* EMPTY */}
+
+      {enrichedAlerts.length === 0 && (
+        <div className="bg-card border border-border rounded-md p-10 md:p-16 text-center">
+
+          <div className="mx-auto size-12 rounded-full bg-accent flex items-center justify-center">
+            <BellRing className="size-6 text-primary" />
+          </div>
+
+          <h2 className="font-semibold mt-5">
+            No alerts yet
+          </h2>
+
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            Create an alert for a polymer price
+            or 24-hour price movement.
+          </p>
+
+          {!creating && (
+            <button
+              type="button"
+              onClick={() =>
+                setCreating(true)
               }
-              className="
-                w-full
-                mt-1.5
-                bg-background
-                border
-                border-border
-                rounded-md
-                px-3
-                py-2.5
-                text-sm
-                focus:outline-none
-                focus:border-primary
-              "
+              className="inline-flex items-center gap-2 px-4 py-2 mt-5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
             >
-
-              {PRODUCTS.length === 0 ? (
-                <option value="">
-                  No products available
-                </option>
-              ) : (
-                PRODUCTS.map((product) => (
-                  <option
-                    key={product.id}
-                    value={product.id}
-                  >
-                    {product.name} — {product.grade}
-                  </option>
-                ))
-              )}
-
-            </select>
-
-          </div>
-
-
-          {/* CONDITION + THRESHOLD */}
-
-          <div
-            className="
-              grid
-              grid-cols-1
-              sm:grid-cols-2
-              gap-4
-            "
-          >
-
-            {/* CONDITION */}
-
-            <div>
-
-              <label
-                className="
-                  text-[10px]
-                  font-display
-                  tracking-widest
-                  text-muted-foreground
-                "
-              >
-                CONDITION
-              </label>
-
-
-              <div
-                className="
-                  flex
-                  gap-1
-                  mt-1.5
-                  p-1
-                  bg-secondary
-                  rounded-md
-                "
-              >
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDirection("below")
-                  }
-                  className={`
-                    flex-1
-                    py-2
-                    text-xs
-                    rounded
-                    transition-colors
-                    ${
-                      direction === "below"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }
-                  `}
-                >
-                  ↓ Below
-                </button>
-
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDirection("above")
-                  }
-                  className={`
-                    flex-1
-                    py-2
-                    text-xs
-                    rounded
-                    transition-colors
-                    ${
-                      direction === "above"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    }
-                  `}
-                >
-                  ↑ Above
-                </button>
-
-              </div>
-
-            </div>
-
-
-            {/* THRESHOLD */}
-
-            <div>
-
-              <label
-                htmlFor="alert-threshold"
-                className="
-                  text-[10px]
-                  font-display
-                  tracking-widest
-                  text-muted-foreground
-                "
-              >
-                THRESHOLD (₹/KG)
-              </label>
-
-
-              <div className="relative mt-1.5">
-
-                <span
-                  className="
-                    absolute
-                    left-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-muted-foreground
-                    text-sm
-                  "
-                >
-                  ₹
-                </span>
-
-
-                <input
-                  id="alert-threshold"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={threshold}
-                  onChange={(event) =>
-                    setThreshold(event.target.value)
-                  }
-                  placeholder="130.00"
-                  className="
-                    w-full
-                    bg-background
-                    border
-                    border-border
-                    rounded-md
-                    pl-7
-                    pr-3
-                    py-2.5
-                    text-sm
-                    focus:outline-none
-                    focus:border-primary
-                  "
-                />
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          {/* CHANNELS */}
-
-          <div>
-
-            <label
-              className="
-                text-[10px]
-                font-display
-                tracking-widest
-                text-muted-foreground
-              "
-            >
-              NOTIFY VIA
-            </label>
-
-
-            <div
-              className="
-                grid
-                grid-cols-1
-                sm:grid-cols-3
-                gap-2
-                mt-2
-              "
-            >
-
-              {CHANNELS.map((channel) => {
-
-                const Icon = channel.icon;
-
-                const selected =
-                  channels.includes(channel.k);
-
-
-                return (
-                  <button
-                    key={channel.k}
-                    type="button"
-                    onClick={() =>
-                      toggleChan(channel.k)
-                    }
-                    aria-pressed={selected}
-                    className={`
-                      inline-flex
-                      items-center
-                      justify-center
-                      gap-2
-                      px-3
-                      py-2.5
-                      border
-                      rounded-md
-                      text-xs
-                      transition-colors
-                      ${
-                        selected
-                          ? "border-primary text-primary bg-primary/10"
-                          : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-                      }
-                    `}
-                  >
-
-                    <Icon className="size-3.5" />
-
-                    {channel.label}
-
-                  </button>
-                );
-
-              })}
-
-            </div>
-
-          </div>
-
-
-          {/* CREATE */}
-
-          <button
-            type="submit"
-            disabled={!pid || PRODUCTS.length === 0}
-            className="
-              w-full
-              bg-primary
-              text-primary-foreground
-              rounded-md
-              py-2.5
-              text-sm
-              font-medium
-              hover:opacity-90
-              disabled:opacity-50
-              disabled:cursor-not-allowed
-              transition-opacity
-            "
-          >
-            Create Alert
-          </button>
-
-        </form>
-
-
-        {/* ===================================================
-            ACTIVE ALERTS
-        ==================================================== */}
-
-        <div
-          className="
-            bg-card
-            border
-            border-border
-            rounded-lg
-            p-4
-            sm:p-5
-          "
-        >
-
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              gap-3
-              pb-3
-              border-b
-              border-border
-            "
-          >
-
-            <div>
-
-              <h2 className="text-sm font-semibold">
-                Active Alerts
-              </h2>
-
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Your configured price triggers.
-              </p>
-
-            </div>
-
-
-            <span
-              className="
-                shrink-0
-                px-2
-                py-1
-                rounded
-                bg-secondary
-                text-[10px]
-                font-display
-                text-muted-foreground
-              "
-            >
-              {alerts.length}
-            </span>
-
-          </div>
-
-
-          {alerts.length === 0 ? (
-
-            <div
-              className="
-                text-center
-                py-10
-                sm:py-14
-              "
-            >
-
-              <div
-                className="
-                  mx-auto
-                  size-12
-                  rounded-full
-                  bg-accent
-                  flex
-                  items-center
-                  justify-center
-                  mb-3
-                "
-              >
-
-                <Bell
-                  className="
-                    size-5
-                    text-muted-foreground
-                  "
-                />
-
-              </div>
-
-
-              <p className="text-sm font-medium">
-                No active alerts
-              </p>
-
-
-              <p
-                className="
-                  text-xs
-                  text-muted-foreground
-                  mt-1
-                  max-w-xs
-                  mx-auto
-                "
-              >
-                Create an alert on the left to start monitoring a price target.
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="space-y-3 pt-4">
-
-              {alerts.map((alertItem) => {
-
-                const product =
-                  PRODUCTS.find(
-                    (product) =>
-                      String(product.id) ===
-                      String(alertItem.productId)
-                  );
-
-
-                if (!product) {
-                  return null;
-                }
-
-
-                return (
-                  <AlertCard
-                    key={alertItem.id}
-                    alert={alertItem}
-                    product={product}
-                    onRemove={remove}
-                  />
-                );
-
-              })}
-
-            </div>
-
+              <Plus className="size-4" />
+              Create Your First Alert
+            </button>
           )}
 
         </div>
+      )}
 
-      </div>
+
+      {/* ALERTS */}
+
+      {enrichedAlerts.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {enrichedAlerts.map(
+            (alert) => (
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                product={alert.product}
+                triggered={
+                  alert.triggered
+                }
+                onDelete={
+                  deleteAlert
+                }
+              />
+            )
+          )}
+
+        </div>
+      )}
 
 
-      {/* =====================================================
-          FOOTER NOTE
-      ====================================================== */}
+      {/* FOOTNOTE */}
 
-      <div
-        className="
-          mt-5
-          text-[10px]
-          sm:text-xs
-          text-muted-foreground
-        "
-      >
-        Alerts are stored locally in your browser and are currently
-        used for UI monitoring rather than server-side notifications.
-      </div>
+      {enrichedAlerts.length > 0 && (
+        <div className="text-xs text-muted-foreground border-t border-border pt-4">
+          Alerts are currently stored locally on
+          this device and evaluated against the
+          latest product data.
+        </div>
+      )}
 
     </div>
   );
 }
-

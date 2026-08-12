@@ -119,61 +119,44 @@ function ChangeValue({ value }) {
 
 
 export default function Dashboard() {
-  const {
-    data: products,
-    error,
-    loading,
-  } = useApi(
-    () => api.products(),
-    []
+ const {
+  data: products,
+  error: productsError,
+  loading: productsLoading,
+} = useApi(() => api.products(), []);
+
+const {
+  data: moverData,
+  error: moversError,
+  loading: moversLoading,
+} = useApi(() => api.topMovers(), []);
+
+
+  if (productsLoading || moversLoading) {
+  return (
+    <div className="text-sm text-muted-foreground">
+      Loading market overview…
+    </div>
   );
+}
 
+  if (productsError) {
+  return <ApiError error={productsError} />;
+}
 
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-
-        <div>
-          <div className="h-7 w-48 bg-secondary rounded" />
-          <div className="h-4 w-72 max-w-full bg-secondary rounded mt-2" />
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {[1, 2, 3, 4].map((item) => (
-            <div
-              key={item}
-              className="
-                h-28
-                bg-card
-                border
-                border-border
-                rounded-lg
-              "
-            />
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-72 bg-card border border-border rounded-lg" />
-          <div className="h-72 bg-card border border-border rounded-lg" />
-        </div>
-
-      </div>
-    );
-  }
-
-
-  if (error) {
-    return <ApiError error={error} />;
-  }
+if (moversError) {
+  return <ApiError error={moversError} />;
+}
 
 
   const list = products || [];
 
   const avgs = computeCategoryAverages(list);
 
-  const movers = computeTopMovers(list);
-
+ const movers = moverData || {
+  gainers: [],
+  losers: [],
+};
 
   const categories = [
     ...new Set(

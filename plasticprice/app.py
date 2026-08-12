@@ -296,6 +296,10 @@ def get_stats():
 # ----------------------------
 # TOP MOVERS (BASIC FOR NOW)
 # ----------------------------
+# ----------------------------
+# TOP MOVERS
+# ----------------------------
+
 @app.get("/top-movers")
 def get_top_movers():
     conn = get_connection()
@@ -306,86 +310,61 @@ def get_top_movers():
             id,
             product_name,
             product_grade,
-            current_price
+            current_price,
+            change_pct,
+            last_updated
         FROM products
-        ORDER BY id
-        LIMIT 10
+        WHERE change_pct IS NOT NULL
+        ORDER BY change_pct DESC
+        LIMIT 5
     """)
 
-    rows = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    return [
-        {
-            "id": r[0],
-            "name": r[1],
-            "grade": r[2],
-            "price": float(r[3])
-        }
-        for r in rows
-    ]
-
-# ----------------------------
-# DASHBOARD SUMMARY
-# ----------------------------
-@app.get("/dashboard")
-# Dashboard endpoint
-def get_dashboard():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) FROM products")
-    total_products = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM categories")
-    total_categories = cursor.fetchone()[0]
+    gainers = cursor.fetchall()
 
     cursor.execute("""
-        SELECT COUNT(*)
+        SELECT
+            id,
+            product_name,
+            product_grade,
+            current_price,
+            change_pct,
+            last_updated
         FROM products
-        WHERE DATE(last_updated) = CURRENT_DATE
+        WHERE change_pct IS NOT NULL
+        ORDER BY change_pct ASC
+        LIMIT 5
     """)
-    updated_today = cursor.fetchone()[0]
+
+    losers = cursor.fetchall()
 
     cursor.close()
     conn.close()
 
     return {
-        "total_products": total_products,
-        "total_categories": total_categories,
-        "updated_today": updated_today
+        "gainers": [
+            {
+                "id": r[0],
+                "name": r[1],
+                "grade": r[2],
+                "price": float(r[3]),
+                "changePct": float(r[4]),
+                "lastUpdated": r[5]
+            }
+            for r in gainers
+        ],
+
+        "losers": [
+            {
+                "id": r[0],
+                "name": r[1],
+                "grade": r[2],
+                "price": float(r[3]),
+                "changePct": float(r[4]),
+                "lastUpdated": r[5]
+            }
+            for r in losers
+        ]
     }
-
-# ----------------------------
-# CATEGORIES
-# ----------------------------
-@app.get("/categories")
-# Categories endpoint
-def get_categories():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT id, category_name
-        FROM categories
-        ORDER BY category_name
-    """)
-
-    rows = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    return [
-        {
-            "id": r[0],
-            "name": r[1]
-        }
-        for r in rows
-    ]
-
 # ----------------------------
 # SYNC PRICES
 # ----------------------------
