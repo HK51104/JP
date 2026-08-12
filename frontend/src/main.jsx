@@ -6,7 +6,7 @@ Conclusion of main.jsx:
   From this point onward, React controls the entire UI.
 */
 
-
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import React from "react";
 // Import the React library.
 import ReactDOM from "react-dom/client";
@@ -49,7 +49,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     */}
         <App />
         {/* react calls app() function */}
-    </BrowserRouter>
+        </BrowserRouter>
+      <SpeedInsights />
   </React.StrictMode>
 );
 
