@@ -115,10 +115,28 @@ def get_products():
                 SELECT ph.price
                 FROM price_history ph
                 WHERE ph.product_id = p.id
+                ORDER BY ph.recorded_at DESC
+                OFFSET 1
+                LIMIT 1
+            ) AS previous_price,
+
+            (
+                SELECT ph.price
+                FROM price_history ph
+                WHERE ph.product_id = p.id
                   AND ph.recorded_at <= NOW() - INTERVAL '24 hours'
                 ORDER BY ph.recorded_at DESC
                 LIMIT 1
-            ) AS previous_price
+            ) AS price_24h_ago,
+
+            (
+                SELECT ph.price
+                FROM price_history ph
+                WHERE ph.product_id = p.id
+                  AND ph.recorded_at <= NOW() - INTERVAL '7 days'
+                ORDER BY ph.recorded_at DESC
+                LIMIT 1
+            ) AS price_7d_ago
 
         FROM products p
 
@@ -133,63 +151,95 @@ def get_products():
     cursor.close()
     conn.close()
 
-    return [
-        {
+    products = []
+
+    for r in rows:
+
+        current_price = float(r[3]) if r[3] is not None else 0
+
+        previous_price = (
+            float(r[6])
+            if r[6] is not None
+            else None
+        )
+
+        price_24h_ago = (
+            float(r[7])
+            if r[7] is not None
+            else None
+        )
+
+        price_7d_ago = (
+            float(r[8])
+            if r[8] is not None
+            else None
+        )
+
+        # --------------------------------
+        # Previous price change
+        # --------------------------------
+
+        if previous_price is not None:
+            price_change = round(
+                current_price - previous_price,
+                2
+            )
+
+            change_pct = round(
+                ((current_price - previous_price) / previous_price) * 100,
+                2
+            ) if previous_price != 0 else 0
+
+        else:
+            price_change = 0
+            change_pct = 0
+
+        # --------------------------------
+        # 24 hour change
+        # --------------------------------
+
+        if price_24h_ago is not None and price_24h_ago != 0:
+
+            change_24h = round(
+                ((current_price - price_24h_ago) / price_24h_ago) * 100,
+                2
+            )
+
+        else:
+            change_24h = 0
+
+        # --------------------------------
+        # 7 day change
+        # --------------------------------
+
+        if price_7d_ago is not None and price_7d_ago != 0:
+
+            change_7d = round(
+                ((current_price - price_7d_ago) / price_7d_ago) * 100,
+                2
+            )
+
+        else:
+            change_7d = 0
+
+        products.append({
             "id": r[0],
             "product_name": r[1],
             "product_grade": r[2],
-            "current_price": float(r[3]),
+            "current_price": current_price,
+
+            "previous_price": previous_price,
+            "price_change": price_change,
+            "change_pct": change_pct,
+
+            "change_24h": change_24h,
+            "change_7d": change_7d,
+
             "last_updated": r[4],
-            "category": r[5],
+            "category": r[5]
+        })
 
-            "change_pct": (
-                round(
-                    ((float(r[3]) - float(r[6])) / float(r[6])) * 100,
-                    2
-                )
-                if r[6] is not None and float(r[6]) != 0
-                else 0
-            )
-        }
-        for r in rows
-    ]
-    
-@app.get("/products/{product_id}")
-def get_product(product_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT
-            p.id,
-            p.product_name,
-            p.product_grade,
-            p.current_price,
-            p.last_updated,
-            c.category_name
-        FROM products p
-        LEFT JOIN categories c
-            ON p.category_id = c.id
-        WHERE p.id = %s
-    """, (product_id,))
-
-    row = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-
-    if not row:
-        return {"error": "Product not found"}
-
-    return {
-        "id": row[0],
-        "product_name": row[1],
-        "product_grade": row[2],
-        "current_price": float(row[3]),
-        "last_updated": row[4],
-        "category": row[5]
-    }
-
+    return products
 # ----------------------------
 # PRICE HISTORY
 # ----------------------------
