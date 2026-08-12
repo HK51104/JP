@@ -1,136 +1,575 @@
+
 /*
-CONCLUSION)
-this Watchlist component allows users to view and manage all the products they have marked as favorites. It fetches the complete product list from the backend, filters only the products present in the user's watchlist, and displays them in an organized card layout. Users can quickly navigate to a product's details page, monitor its latest price, or remove it from the watchlist. The component also handles loading states, API errors, and empty watchlist scenarios to provide a smooth and user-friendly experience.
+Watchlist.jsx
+
+Responsive Watchlist page for POLYMETRIC.
+
+Responsibilities:
+1. Display products saved to the user's watchlist.
+2. Allow products to be removed from the watchlist.
+3. Link each product to its Product Details page.
+4. Show current price and daily percentage change.
+5. Handle an empty watchlist cleanly.
+6. Work properly on mobile, tablet and desktop.
 */
 
-
-
 import { Link } from "react-router-dom";
-// Link is a component from the react-router-dom library that allows navigation between different pages in a React application without causing a full page reload. It is used to create links that enable users to navigate to different routes defined in the application.
-import { Star } from "lucide-react";
-// Star is an icon component imported from the lucide-react library. It is used to display a star icon in the user interface, typically for indicating favorites or watchlist items.
-import { api, useApi } from "../api";
-// api is an object that contains functions for making API requests to the backend server, such as fetching products, product details, and price history. useApi is a custom React hook that simplifies the process of making API requests and managing the loading, error, and data states. It is used to fetch data from the backend and handle the response in a React component.
-// useApi is a custom React hook that simplifies the process of making API requests and managing the loading, error, and data states. It is used to fetch data from the backend and handle the response in a React component.
-import { useWatchlist } from "../lib/watchlist";
-// useWatchlist is a custom React hook that provides functionality for managing a user's watchlist. It allows components to access the current watchlist items, toggle items in and out of the watchlist, and check if an item is already in the watchlist. This hook is used to implement watchlist features in the application, such as adding or removing products from the user's watchlist.
-import ApiError from "../components/APIerror";
-// ApiError is a React component that is used to display error messages related to API requests. It takes an error object as a prop and renders a user-friendly message indicating that there was an issue with the API request. This component helps improve the user experience by providing feedback when something goes wrong during data fetching.
+import {
+  Star,
+  ArrowUpRight,
+  ArrowDownRight,
+  ExternalLink,
+  Trash2,
+} from "lucide-react";
 
-export default function Watchlist() 
-// The Watchlist component is a React functional component that displays a list of products that the user has added to their watchlist. It uses the useApi hook to fetch the list of products from the backend server and the useWatchlist hook to manage the user's watchlist. The component handles loading and error states, and renders the watchlist products in a grid layout. If there are no products in the watchlist, it displays a message indicating that the watchlist is empty.
-{
-  const { data: products, error, loading } = useApi(
-    // The useApi hook is called with a function that fetches the list of products from the backend server using the api.products() method. The hook returns an object containing three properties: data (renamed to products), which holds the fetched product data; error, which captures any errors that occur during the API request; and loading, which indicates whether the data is still being fetched. This allows the component to handle loading states, display error messages, and render the watchlist products once the data is successfully retrieved.
+import { useApi, api } from "../api";
+import ApiError from "../components/APIerror";
+import { useWatchlist } from "../hooks/useWatchlist";
+
+
+function ChangeValue({ value }) {
+  const change = Number(value) || 0;
+
+  if (change > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-up">
+        <ArrowUpRight className="size-3" />
+        +{change.toFixed(2)}%
+      </span>
+    );
+  }
+
+  if (change < 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-down">
+        <ArrowDownRight className="size-3" />
+        {change.toFixed(2)}%
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-muted-foreground">
+      0.00%
+    </span>
+  );
+}
+
+
+function WatchlistRow({ product, onRemove }) {
+  return (
+    <div
+      className="
+        group
+        bg-card
+        border
+        border-border
+        rounded-lg
+        p-4
+        sm:p-5
+        transition-colors
+        hover:bg-accent/30
+      "
+    >
+      <div
+        className="
+          flex
+          flex-col
+          sm:flex-row
+          sm:items-center
+          gap-4
+        "
+      >
+
+        {/* PRODUCT INFORMATION */}
+
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+
+          <div
+            className="
+              size-9
+              sm:size-10
+              shrink-0
+              rounded-md
+              bg-accent
+              flex
+              items-center
+              justify-center
+            "
+          >
+            <Star className="size-4 text-primary fill-primary" />
+          </div>
+
+
+          <div className="min-w-0 flex-1">
+
+            <Link
+              to={`/products/${product.id}`}
+              className="
+                block
+                text-sm
+                sm:text-base
+                font-semibold
+                truncate
+                hover:text-primary
+                transition-colors
+              "
+            >
+              {product.name || "Unnamed Product"}
+            </Link>
+
+
+            <div
+              className="
+                mt-1
+                flex
+                flex-wrap
+                items-center
+                gap-x-2
+                gap-y-1
+                text-[10px]
+                sm:text-xs
+                text-muted-foreground
+              "
+            >
+              {product.grade && (
+                <span className="font-mono">
+                  {product.grade}
+                </span>
+              )}
+
+              {product.category && (
+                <>
+                  <span className="text-border">
+                    •
+                  </span>
+
+                  <span>
+                    {product.category}
+                  </span>
+                </>
+              )}
+
+              {product.supplier && product.supplier !== "—" && (
+                <>
+                  <span className="text-border">
+                    •
+                  </span>
+
+                  <span className="truncate max-w-32 sm:max-w-none">
+                    {product.supplier}
+                  </span>
+                </>
+              )}
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* PRICE + CHANGE */}
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            sm:justify-end
+            gap-6
+            sm:gap-8
+            sm:min-w-48
+          "
+        >
+
+          <div className="sm:text-right">
+
+            <div
+              className="
+                text-[9px]
+                sm:text-[10px]
+                font-display
+                tracking-widest
+                text-muted-foreground
+              "
+            >
+              CURRENT PRICE
+            </div>
+
+            <div
+              className="
+                mt-0.5
+                font-display
+                text-lg
+                sm:text-xl
+                font-bold
+              "
+            >
+              ₹{Number(product.currentPrice || 0).toFixed(2)}
+            </div>
+
+          </div>
+
+
+          <div className="text-xs font-display min-w-16 text-right">
+            <ChangeValue value={product.changePct} />
+          </div>
+
+        </div>
+
+
+        {/* ACTIONS */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            sm:ml-2
+            sm:border-l
+            sm:border-border
+            sm:pl-4
+          "
+        >
+
+          <Link
+            to={`/products/${product.id}`}
+            title="View product"
+            className="
+              size-9
+              rounded-md
+              border
+              border-border
+              flex
+              items-center
+              justify-center
+              text-muted-foreground
+              hover:text-primary
+              hover:border-primary
+              transition-colors
+            "
+          >
+            <ExternalLink className="size-3.5" />
+          </Link>
+
+
+          <button
+            type="button"
+            onClick={() => onRemove(product.id)}
+            title="Remove from watchlist"
+            aria-label={`Remove ${product.name || "product"} from watchlist`}
+            className="
+              size-9
+              rounded-md
+              border
+              border-border
+              flex
+              items-center
+              justify-center
+              text-muted-foreground
+              hover:text-down
+              hover:border-down
+              transition-colors
+            "
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+export default function Watchlist() {
+
+  const {
+    data: products,
+    error,
+    loading,
+  } = useApi(
     () => api.products(),
-    // The function passed to the useApi hook is an arrow function that calls the api.products() method to fetch the list of products from the backend server. This function is executed when the component mounts, and it returns a promise that resolves with the product data. The useApi hook manages the loading, error, and data states based on the result of this API request.
-    // The second argument to the useApi hook is an empty array, which means that the effect will only run once when the component mounts. This ensures that the product data is fetched only once and not on every render of the component.
-    // The useApi hook is called with a function that fetches the list of products from the backend server using the api.products() method. The hook returns an object containing three properties: data (renamed to products), which holds the fetched product data; error, which captures any errors that occur during the API request; and loading, which indicates whether the data is still being fetched. This allows the component to handle loading states, display error messages, and render the watchlist products once the data is successfully retrieved.
     []
   );
 
-  const { ids, toggle, has } = useWatchlist();
-  // The useWatchlist hook is called to access the user's watchlist functionality. It returns an object containing three properties: ids, which is an array of product IDs that are currently in the user's watchlist; toggle, which is a function that allows adding or removing a product from the watchlist based on its ID; and has, which is a function that checks if a specific product ID is already in the watchlist. This hook enables the Watchlist component to manage and display the user's watchlist effectively.
 
-  if (loading)
-    // If the data is still being fetched (indicated by the "loading" state being true), the component renders a loading message to inform the user that the watchlist is being loaded. This provides feedback to the user while waiting for the API request to complete. 
-    {
+  const {
+    has,
+    toggle,
+  } = useWatchlist();
+
+
+  if (loading) {
     return (
-      <div className="p-6 text-muted-foreground">
-        Loading watchlist...
+      <div className="space-y-5 animate-pulse">
+
+        <div>
+          <div className="h-7 w-36 bg-secondary rounded" />
+
+          <div className="h-4 w-64 max-w-full bg-secondary rounded mt-2" />
+        </div>
+
+
+        <div className="space-y-3">
+
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="
+                h-28
+                bg-card
+                border
+                border-border
+                rounded-lg
+              "
+            />
+          ))}
+
+        </div>
+
       </div>
     );
   }
 
-  if (error) 
-    {
+
+  if (error) {
     return <ApiError error={error} />;
   }
 
-  const watchlistProducts = (products || []).filter((p) =>
-    // The line "const watchlistProducts = (products || []).filter((p) => ids.includes(p.id));" creates a new array called "watchlistProducts" that contains only the products that are currently in the user's watchlist. It uses the "filter" method to iterate over the "products" array (or an empty array if "products" is null or undefined) and checks if each product's ID is included in the "ids" array returned by the useWatchlist hook. This ensures that only the products that the user has added to their watchlist are displayed in the component.
-    ids.includes(p.id)
-    // The "ids.includes(p.id)" condition checks if the current product's ID (p.id) is present in the "ids" array, which contains the IDs of products that are in the user's watchlist. If the product's ID is found in the "ids" array, it means that the product is part of the watchlist and will be included in the "watchlistProducts" array. This filtering process allows the component to display only the relevant products that the user has chosen to monitor in their watchlist.
+
+  const allProducts = products || [];
+
+
+  const watchedProducts = allProducts.filter(
+    (product) => has(product.id)
   );
 
+
   return (
-    <div className="space-y-6">
-      {/*
-      Main container of the whole Watchlist page.
-      It stacks every section vertically with spacing. 
-      */}
-      <div>
-        {/* Header section. */}
-        <h1 className="text-2xl font-bold">Watchlist</h1>
-        <p className="text-muted-foreground text-sm">
-          Saved products
-        </p>
+    <div className="w-full min-w-0">
+
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
+      <div
+        className="
+          mb-6
+          sm:mb-8
+          flex
+          flex-col
+          sm:flex-row
+          sm:items-end
+          sm:justify-between
+          gap-3
+        "
+      >
+
+        <div>
+
+          <div className="flex items-center gap-2">
+
+            <Star
+              className="
+                size-5
+                sm:size-6
+                text-primary
+                fill-primary
+              "
+            />
+
+            <h1
+              className="
+                text-2xl
+                sm:text-3xl
+                font-bold
+                tracking-tight
+              "
+            >
+              Watchlist
+            </h1>
+
+          </div>
+
+
+          <p
+            className="
+              text-xs
+              sm:text-sm
+              text-muted-foreground
+              mt-1
+            "
+          >
+            Keep track of the polymer grades you care about.
+          </p>
+
+        </div>
+
+
+        <div
+          className="
+            text-[10px]
+            sm:text-xs
+            font-display
+            text-muted-foreground
+          "
+        >
+          {watchedProducts.length}{" "}
+          {watchedProducts.length === 1
+            ? "PRODUCT"
+            : "PRODUCTS"}{" "}
+          WATCHING
+        </div>
+
       </div>
 
-      {watchlistProducts.length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground border border-border rounded-md">
-          {/*
-           Empty state box.
-           Shows
-           No products in your watchlist.
-           when there are no products. 
-          */}
-          No products in your watchlist.
+
+      {/* =====================================================
+          EMPTY WATCHLIST
+      ====================================================== */}
+
+      {watchedProducts.length === 0 ? (
+        <div
+          className="
+            bg-card
+            border
+            border-border
+            rounded-lg
+            p-8
+            sm:p-12
+            text-center
+          "
+        >
+
+          <div
+            className="
+              mx-auto
+              size-12
+              sm:size-14
+              rounded-full
+              bg-accent
+              flex
+              items-center
+              justify-center
+              mb-4
+            "
+          >
+            <Star
+              className="
+                size-5
+                sm:size-6
+                text-muted-foreground
+              "
+            />
+          </div>
+
+
+          <h2 className="text-base sm:text-lg font-semibold">
+            Your watchlist is empty
+          </h2>
+
+
+          <p
+            className="
+              text-xs
+              sm:text-sm
+              text-muted-foreground
+              max-w-md
+              mx-auto
+              mt-2
+            "
+          >
+            Add polymer grades to your watchlist to
+            quickly monitor their prices and market movement.
+          </p>
+
+
+          <Link
+            to="/products"
+            className="
+              inline-flex
+              items-center
+              justify-center
+              mt-5
+              px-4
+              py-2
+              rounded-md
+              bg-primary
+              text-primary-foreground
+              text-xs
+              sm:text-sm
+              font-medium
+              hover:opacity-90
+              transition-opacity
+            "
+          >
+            Browse Products
+          </Link>
+
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Creates the watchlist product grid. */}
-          {watchlistProducts.map((p) => (
-            <div
-              key={p.id}
-              className="card p-4"
-            >
-            {/* One complete product card. */}
-              <div className="flex justify-between items-start mb-3">
-                {/* Top section of the card. splits into left and right */}
-                <div>
-                  {/* stores product info */}
-                  <div className="text-xs text-muted-foreground">
-                    {/* shows category */}
-                    {p.category}
-                  </div>
 
-                  <Link
-                    to={`/products/${p.id}`}
-                    className="font-semibold hover:text-yellow-400"
-                  >
-                    {p.name}
-                  </Link>
+        /* ===================================================
+           WATCHLIST PRODUCTS
+        ==================================================== */
 
-                  <div className="text-sm text-muted-foreground">
-                    {/* shows grade */}
-                    {p.grade}
-                  </div>
-                </div>
+        <div className="space-y-3">
 
-                <button
-                  onClick={() => toggle(p.id)}
-                  aria-label="Remove from watchlist"
-                >
-                  <Star
-                    size={16}
-                    className={
-                      has(p.id)
-                        ? "fill-primary text-primary"
-                        : ""
-                    }
-                  />
-                </button>
-              </div>
-
-              <div className="text-2xl font-bold">
-                {/* shows current price */}
-                ₹{p.currentPrice.toFixed(2)}
-              </div>
-            </div>
+          {watchedProducts.map((product) => (
+            <WatchlistRow
+              key={product.id}
+              product={product}
+              onRemove={toggle}
+            />
           ))}
+
+        </div>
+
+      )}
+
+
+      {/* =====================================================
+          FOOTER INFORMATION
+      ====================================================== */}
+
+      {watchedProducts.length > 0 && (
+        <div
+          className="
+            mt-5
+            flex
+            flex-col
+            sm:flex-row
+            sm:items-center
+            sm:justify-between
+            gap-2
+            text-[10px]
+            sm:text-xs
+            text-muted-foreground
+          "
+        >
+
+          <span>
+            Prices are indicative and may change with market conditions.
+          </span>
+
+
+          <Link
+            to="/products"
+            className="
+              text-primary
+              hover:underline
+              shrink-0
+            "
+          >
+            Browse all products →
+          </Link>
+
         </div>
       )}
+
     </div>
   );
 }
+
