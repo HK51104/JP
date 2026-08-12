@@ -1,49 +1,84 @@
-
-/*
-Watchlist.jsx
-
-Responsive Watchlist page for POLYMETRIC.
-
-Responsibilities:
-1. Display products saved to the user's watchlist.
-2. Allow products to be removed from the watchlist.
-3. Link each product to its Product Details page.
-4. Show current price and daily percentage change.
-5. Handle an empty watchlist cleanly.
-6. Work properly on mobile, tablet and desktop.
-*/
-
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Star,
-  ArrowUpRight,
   ArrowDownRight,
-  ExternalLink,
+  ArrowUpRight,
+  Star,
   Trash2,
+  Search,
 } from "lucide-react";
 
-import { useApi, api } from "../api";
+import {
+  api,
+  useApi,
+  formatPrice,
+  formatChange,
+} from "../api";
+
 import ApiError from "../components/APIerror";
-import { useWatchlist } from "../lib/useWatchlist";
 
 
-function ChangeValue({ value }) {
-  const change = Number(value) || 0;
+const WATCHLIST_KEY = "polymetric_watchlist";
 
-  if (change > 0) {
+
+/*
+--------------------------------------------------
+WATCHLIST STORAGE
+--------------------------------------------------
+*/
+
+function readWatchlist() {
+  try {
+    const stored = localStorage.getItem(
+      WATCHLIST_KEY
+    );
+
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+
+function saveWatchlist(ids) {
+  localStorage.setItem(
+    WATCHLIST_KEY,
+    JSON.stringify(ids)
+  );
+}
+
+
+/*
+--------------------------------------------------
+CHANGE DISPLAY
+--------------------------------------------------
+*/
+
+function Change({ value }) {
+  const number = Number(value) || 0;
+
+  if (number > 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-up">
-        <ArrowUpRight className="size-3" />
-        +{change.toFixed(2)}%
+      <span className="text-up flex items-center gap-1">
+        <ArrowUpRight className="size-3.5" />
+        +{number.toFixed(2)}%
       </span>
     );
   }
 
-  if (change < 0) {
+  if (number < 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-down">
-        <ArrowDownRight className="size-3" />
-        {change.toFixed(2)}%
+      <span className="text-down flex items-center gap-1">
+        <ArrowDownRight className="size-3.5" />
+        {number.toFixed(2)}%
       </span>
     );
   }
@@ -56,232 +91,90 @@ function ChangeValue({ value }) {
 }
 
 
-function WatchlistRow({ product, onRemove }) {
+/*
+--------------------------------------------------
+WATCHLIST ROW
+--------------------------------------------------
+*/
+
+function WatchlistRow({
+  product,
+  onRemove,
+}) {
   return (
-    <div
-      className="
-        group
-        bg-card
-        border
-        border-border
-        rounded-lg
-        p-4
-        sm:p-5
-        transition-colors
-        hover:bg-accent/30
-      "
-    >
-      <div
-        className="
-          flex
-          flex-col
-          sm:flex-row
-          sm:items-center
-          gap-4
-        "
+    <div className="group grid grid-cols-[minmax(0,1fr)_110px_100px_45px] md:grid-cols-[minmax(0,1fr)_140px_120px_55px] items-center gap-3 px-4 py-4 border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors">
+
+      {/* PRODUCT */}
+
+      <Link
+        to={`/products/${product.id}`}
+        className="min-w-0"
       >
-
-        {/* PRODUCT INFORMATION */}
-
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-
-          <div
-            className="
-              size-9
-              sm:size-10
-              shrink-0
-              rounded-md
-              bg-accent
-              flex
-              items-center
-              justify-center
-            "
-          >
-            <Star className="size-4 text-primary fill-primary" />
-          </div>
-
-
-          <div className="min-w-0 flex-1">
-
-            <Link
-              to={`/products/${product.id}`}
-              className="
-                block
-                text-sm
-                sm:text-base
-                font-semibold
-                truncate
-                hover:text-primary
-                transition-colors
-              "
-            >
-              {product.name || "Unnamed Product"}
-            </Link>
-
-
-            <div
-              className="
-                mt-1
-                flex
-                flex-wrap
-                items-center
-                gap-x-2
-                gap-y-1
-                text-[10px]
-                sm:text-xs
-                text-muted-foreground
-              "
-            >
-              {product.grade && (
-                <span className="font-mono">
-                  {product.grade}
-                </span>
-              )}
-
-              {product.category && (
-                <>
-                  <span className="text-border">
-                    •
-                  </span>
-
-                  <span>
-                    {product.category}
-                  </span>
-                </>
-              )}
-
-              {product.supplier && product.supplier !== "—" && (
-                <>
-                  <span className="text-border">
-                    •
-                  </span>
-
-                  <span className="truncate max-w-32 sm:max-w-none">
-                    {product.supplier}
-                  </span>
-                </>
-              )}
-            </div>
-
-          </div>
-
+        <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+          {product.name}
         </div>
 
-
-        {/* PRICE + CHANGE */}
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            sm:justify-end
-            gap-6
-            sm:gap-8
-            sm:min-w-48
-          "
-        >
-
-          <div className="sm:text-right">
-
-            <div
-              className="
-                text-[9px]
-                sm:text-[10px]
-                font-display
-                tracking-widest
-                text-muted-foreground
-              "
-            >
-              CURRENT PRICE
-            </div>
-
-            <div
-              className="
-                mt-0.5
-                font-display
-                text-lg
-                sm:text-xl
-                font-bold
-              "
-            >
-              ₹{Number(product.currentPrice || 0).toFixed(2)}
-            </div>
-
-          </div>
+        <div className="text-xs text-muted-foreground mt-1 truncate">
+          {product.grade}
+        </div>
+      </Link>
 
 
-          <div className="text-xs font-display min-w-16 text-right">
-            <ChangeValue value={product.changePct} />
-          </div>
+      {/* PRICE */}
 
+      <Link
+        to={`/products/${product.id}`}
+        className="text-right"
+      >
+        <div className="font-display font-semibold text-sm">
+          {formatPrice(product.price)}
         </div>
 
-
-        {/* ACTIONS */}
-
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-            sm:ml-2
-            sm:border-l
-            sm:border-border
-            sm:pl-4
-          "
-        >
-
-          <Link
-            to={`/products/${product.id}`}
-            title="View product"
-            className="
-              size-9
-              rounded-md
-              border
-              border-border
-              flex
-              items-center
-              justify-center
-              text-muted-foreground
-              hover:text-primary
-              hover:border-primary
-              transition-colors
-            "
-          >
-            <ExternalLink className="size-3.5" />
-          </Link>
-
-
-          <button
-            type="button"
-            onClick={() => onRemove(product.id)}
-            title="Remove from watchlist"
-            aria-label={`Remove ${product.name || "product"} from watchlist`}
-            className="
-              size-9
-              rounded-md
-              border
-              border-border
-              flex
-              items-center
-              justify-center
-              text-muted-foreground
-              hover:text-down
-              hover:border-down
-              transition-colors
-            "
-          >
-            <Trash2 className="size-3.5" />
-          </button>
-
+        <div className="text-[10px] text-muted-foreground mt-1">
+          INR / KG
         </div>
+      </Link>
 
-      </div>
+
+      {/* CHANGE */}
+
+      <Link
+        to={`/products/${product.id}`}
+        className="text-right text-xs font-display"
+      >
+        <Change
+          value={product.changePct}
+        />
+
+        <div className="text-[10px] text-muted-foreground mt-1">
+          24H
+        </div>
+      </Link>
+
+
+      {/* REMOVE */}
+
+      <button
+        type="button"
+        onClick={() =>
+          onRemove(product.id)
+        }
+        aria-label={`Remove ${product.name} from watchlist`}
+        className="size-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-down hover:bg-down/10 transition-colors"
+      >
+        <Trash2 className="size-4" />
+      </button>
+
     </div>
   );
 }
 
+
+/*
+--------------------------------------------------
+WATCHLIST PAGE
+--------------------------------------------------
+*/
 
 export default function Watchlist() {
 
@@ -295,37 +188,199 @@ export default function Watchlist() {
   );
 
 
-  const {
-    has,
-    toggle,
-  } = useWatchlist();
+  const [
+    watchlistIds,
+    setWatchlistIds,
+  ] = useState(readWatchlist);
 
+
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+
+
+  /*
+  ----------------------------------------------
+  KEEP LOCAL STORAGE IN SYNC
+  ----------------------------------------------
+  */
+
+  useEffect(() => {
+    saveWatchlist(watchlistIds);
+  }, [watchlistIds]);
+
+
+  /*
+  ----------------------------------------------
+  REMOVE PRODUCT
+  ----------------------------------------------
+  */
+
+  function removeProduct(id) {
+    setWatchlistIds((current) =>
+      current.filter(
+        (item) =>
+          String(item) !== String(id)
+      )
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  CLEAR ALL
+  ----------------------------------------------
+  */
+
+  function clearAll() {
+    setWatchlistIds([]);
+  }
+
+
+  /*
+  ----------------------------------------------
+  WATCHLIST PRODUCTS
+  ----------------------------------------------
+  */
+
+  const watchlistProducts =
+    useMemo(() => {
+
+      if (!Array.isArray(products)) {
+        return [];
+      }
+
+      const ids = new Set(
+        watchlistIds.map(String)
+      );
+
+      return products.filter(
+        (product) =>
+          ids.has(
+            String(product.id)
+          )
+      );
+
+    }, [
+      products,
+      watchlistIds,
+    ]);
+
+
+  /*
+  ----------------------------------------------
+  SEARCH
+  ----------------------------------------------
+  */
+
+  const visibleProducts =
+    useMemo(() => {
+
+      const query =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return watchlistProducts;
+      }
+
+      return watchlistProducts.filter(
+        (product) =>
+          product.name
+            .toLowerCase()
+            .includes(query) ||
+          product.grade
+            .toLowerCase()
+            .includes(query)
+      );
+
+    }, [
+      watchlistProducts,
+      search,
+    ]);
+
+
+  /*
+  ----------------------------------------------
+  LOADING
+  ----------------------------------------------
+  */
 
   if (loading) {
     return (
-      <div className="space-y-5 animate-pulse">
+      <div className="space-y-4">
+
+        <div className="h-8 w-48 bg-accent animate-pulse rounded" />
+
+        <div className="h-12 w-full bg-accent animate-pulse rounded-md" />
+
+        <div className="h-72 bg-accent animate-pulse rounded-md" />
+
+      </div>
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  ERROR
+  ----------------------------------------------
+  */
+
+  if (error) {
+    return (
+      <ApiError error={error} />
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  EMPTY WATCHLIST
+  ----------------------------------------------
+  */
+
+  if (
+    watchlistProducts.length === 0
+  ) {
+    return (
+      <div className="space-y-8">
 
         <div>
-          <div className="h-7 w-36 bg-secondary rounded" />
+          <h1 className="text-2xl font-bold tracking-tight">
+            My Watchlist
+          </h1>
 
-          <div className="h-4 w-64 max-w-full bg-secondary rounded mt-2" />
+          <p className="text-sm text-muted-foreground mt-1">
+            Track the polymer grades you care about.
+          </p>
         </div>
 
 
-        <div className="space-y-3">
+        <div className="bg-card border border-border rounded-md p-10 md:p-16 text-center">
 
-          {[1, 2, 3, 4].map((item) => (
-            <div
-              key={item}
-              className="
-                h-28
-                bg-card
-                border
-                border-border
-                rounded-lg
-              "
-            />
-          ))}
+          <div className="mx-auto size-12 rounded-full bg-accent flex items-center justify-center">
+            <Star className="size-6 text-primary" />
+          </div>
+
+          <h2 className="font-semibold mt-5">
+            Your watchlist is empty
+          </h2>
+
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            Add products to your watchlist from the
+            Products page to keep their prices and
+            market movements in one place.
+          </p>
+
+          <Link
+            to="/products"
+            className="inline-flex items-center justify-center px-4 py-2 mt-5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Browse Products
+          </Link>
 
         </div>
 
@@ -334,242 +389,160 @@ export default function Watchlist() {
   }
 
 
-  if (error) {
-    return <ApiError error={error} />;
-  }
-
-
-  const allProducts = products || [];
-
-
-  const watchedProducts = allProducts.filter(
-    (product) => has(product.id)
-  );
-
+  /*
+  ----------------------------------------------
+  MAIN
+  ----------------------------------------------
+  */
 
   return (
-    <div className="w-full min-w-0">
+    <div className="space-y-6">
 
-      {/* =====================================================
+
+      {/* ---------------------------------------
           HEADER
-      ====================================================== */}
+      ---------------------------------------- */}
 
-      <div
-        className="
-          mb-6
-          sm:mb-8
-          flex
-          flex-col
-          sm:flex-row
-          sm:items-end
-          sm:justify-between
-          gap-3
-        "
-      >
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
 
         <div>
 
           <div className="flex items-center gap-2">
 
-            <Star
-              className="
-                size-5
-                sm:size-6
-                text-primary
-                fill-primary
-              "
-            />
+            <Star className="size-5 text-primary fill-primary" />
 
-            <h1
-              className="
-                text-2xl
-                sm:text-3xl
-                font-bold
-                tracking-tight
-              "
-            >
-              Watchlist
+            <h1 className="text-2xl font-bold tracking-tight">
+              My Watchlist
             </h1>
 
           </div>
 
-
-          <p
-            className="
-              text-xs
-              sm:text-sm
-              text-muted-foreground
-              mt-1
-            "
-          >
-            Keep track of the polymer grades you care about.
+          <p className="text-sm text-muted-foreground mt-1">
+            {watchlistProducts.length}{" "}
+            {watchlistProducts.length === 1
+              ? "product"
+              : "products"}{" "}
+            being tracked.
           </p>
 
         </div>
 
 
-        <div
-          className="
-            text-[10px]
-            sm:text-xs
-            font-display
-            text-muted-foreground
-          "
+        <button
+          type="button"
+          onClick={clearAll}
+          className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-border text-xs text-muted-foreground hover:text-down hover:border-down transition-colors"
         >
-          {watchedProducts.length}{" "}
-          {watchedProducts.length === 1
-            ? "PRODUCT"
-            : "PRODUCTS"}{" "}
-          WATCHING
+          <Trash2 className="size-3.5" />
+          Clear Watchlist
+        </button>
+
+      </div>
+
+
+      {/* ---------------------------------------
+          SEARCH
+      ---------------------------------------- */}
+
+      <div className="bg-card border border-border rounded-md p-4">
+
+        <div className="relative">
+
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+
+          <input
+            value={search}
+            onChange={(event) =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search your watchlist..."
+            className="w-full h-10 pl-9 pr-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary transition-colors"
+          />
+
         </div>
 
       </div>
 
 
-      {/* =====================================================
-          EMPTY WATCHLIST
-      ====================================================== */}
+      {/* ---------------------------------------
+          TABLE
+      ---------------------------------------- */}
 
-      {watchedProducts.length === 0 ? (
-        <div
-          className="
-            bg-card
-            border
-            border-border
-            rounded-lg
-            p-8
-            sm:p-12
-            text-center
-          "
-        >
+      <div className="bg-card border border-border rounded-md overflow-hidden">
 
-          <div
-            className="
-              mx-auto
-              size-12
-              sm:size-14
-              rounded-full
-              bg-accent
-              flex
-              items-center
-              justify-center
-              mb-4
-            "
-          >
-            <Star
-              className="
-                size-5
-                sm:size-6
-                text-muted-foreground
-              "
-            />
+        <div className="overflow-x-auto">
+
+          <div className="min-w-[620px]">
+
+            {/* HEADER */}
+
+            <div className="grid grid-cols-[minmax(0,1fr)_110px_100px_45px] md:grid-cols-[minmax(0,1fr)_140px_120px_55px] gap-3 px-4 py-3 border-b border-border bg-accent/30 text-[10px] font-display tracking-widest text-muted-foreground">
+
+              <div>
+                PRODUCT
+              </div>
+
+              <div className="text-right">
+                PRICE
+              </div>
+
+              <div className="text-right">
+                CHANGE
+              </div>
+
+              <div />
+
+            </div>
+
+
+            {/* SEARCH EMPTY */}
+
+            {visibleProducts.length === 0 && (
+              <div className="py-12 text-center">
+
+                <div className="text-sm font-medium">
+                  No matching products
+                </div>
+
+                <div className="text-xs text-muted-foreground mt-1">
+                  Try another search.
+                </div>
+
+              </div>
+            )}
+
+
+            {/* ROWS */}
+
+            {visibleProducts.map(
+              (product) => (
+                <WatchlistRow
+                  key={product.id}
+                  product={product}
+                  onRemove={
+                    removeProduct
+                  }
+                />
+              )
+            )}
+
           </div>
 
-
-          <h2 className="text-base sm:text-lg font-semibold">
-            Your watchlist is empty
-          </h2>
-
-
-          <p
-            className="
-              text-xs
-              sm:text-sm
-              text-muted-foreground
-              max-w-md
-              mx-auto
-              mt-2
-            "
-          >
-            Add polymer grades to your watchlist to
-            quickly monitor their prices and market movement.
-          </p>
-
-
-          <Link
-            to="/products"
-            className="
-              inline-flex
-              items-center
-              justify-center
-              mt-5
-              px-4
-              py-2
-              rounded-md
-              bg-primary
-              text-primary-foreground
-              text-xs
-              sm:text-sm
-              font-medium
-              hover:opacity-90
-              transition-opacity
-            "
-          >
-            Browse Products
-          </Link>
-
-        </div>
-      ) : (
-
-        /* ===================================================
-           WATCHLIST PRODUCTS
-        ==================================================== */
-
-        <div className="space-y-3">
-
-          {watchedProducts.map((product) => (
-            <WatchlistRow
-              key={product.id}
-              product={product}
-              onRemove={toggle}
-            />
-          ))}
-
         </div>
 
-      )}
+      </div>
 
 
-      {/* =====================================================
-          FOOTER INFORMATION
-      ====================================================== */}
+      {/* ---------------------------------------
+          FOOTER
+      ---------------------------------------- */}
 
-      {watchedProducts.length > 0 && (
-        <div
-          className="
-            mt-5
-            flex
-            flex-col
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-            gap-2
-            text-[10px]
-            sm:text-xs
-            text-muted-foreground
-          "
-        >
-
-          <span>
-            Prices are indicative and may change with market conditions.
-          </span>
-
-
-          <Link
-            to="/products"
-            className="
-              text-primary
-              hover:underline
-              shrink-0
-            "
-          >
-            Browse all products →
-          </Link>
-
-        </div>
-      )}
+      <div className="text-xs text-muted-foreground">
+        Watchlist is stored locally on this device.
+      </div>
 
     </div>
   );
 }
-

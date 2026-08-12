@@ -1,190 +1,45 @@
-/*
-Productdetails.jsx
-
-Responsibilities:
-1. Fetch one product from the FastAPI backend.
-2. Fetch its historical prices.
-3. Switch between 30D / 90D / 1Y history.
-4. Calculate period change, high and low.
-5. Display a responsive price chart.
-6. Manage watchlist state.
-7. Provide alert, datasheet and RFQ actions.
-8. Keep the page fully responsive on mobile.
-*/
-
-import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-
 import {
   ArrowLeft,
-  ArrowUpRight,
   ArrowDownRight,
-  Star,
-  FileText,
-  Bell,
-  MapPin,
-  ChevronRight,
+  ArrowUpRight,
+  Clock,
+  Activity,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
-
-import { api, useApi } from "../api";
-import { useWatchlist } from "../lib/watchlist";
+import { api, useApi, formatPrice, formatChange, formatRupeeChange, formatLastUpdated, getRelativeTime } from "../api";
 import ApiError from "../components/APIerror";
 
 
-const RANGES = [
-  { key: "30", label: "30D", days: 30 },
-  { key: "90", label: "90D", days: 90 },
-  { key: "365", label: "1Y", days: 365 },
-];
+/*
+--------------------------------------------------
+PRICE CHANGE DISPLAY
+--------------------------------------------------
+*/
 
+function ChangeValue({ value, showIcon = true }) {
+  const number = Number(value) || 0;
 
-function formatPrice(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "0.00";
-  }
-
-  return number.toFixed(2);
-}
-
-
-function formatPercent(value) {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return "0.00";
-  }
-
-  return number.toFixed(2);
-}
-
-
-function formatDate(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString([], {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-
-function formatDateTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleString([], {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-
-function Metric({ label, value, tone }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[9px] sm:text-[10px] font-display tracking-widest text-muted-foreground">
-        {label}
-      </div>
-
-      <div
-        className={`
-          font-display
-          text-lg
-          sm:text-xl
-          font-bold
-          mt-1
-          truncate
-          ${
-            tone === "up"
-              ? "text-up"
-              : tone === "down"
-                ? "text-down"
-                : ""
-          }
-        `}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-
-function Row({ k, v }) {
-  return (
-    <div
-      className="
-        flex
-        flex-col
-        sm:flex-row
-        sm:items-center
-        sm:justify-between
-        gap-1
-        border-b
-        border-border/50
-        pb-2
-      "
-    >
-      <dt className="text-muted-foreground">
-        {k}
-      </dt>
-
-      <dd className="font-medium sm:text-right break-words">
-        {v || "—"}
-      </dd>
-    </div>
-  );
-}
-
-
-function ChangeBadge({ value }) {
-  const change = Number(value) || 0;
-
-  if (change > 0) {
+  if (number > 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-up">
-        <ArrowUpRight className="size-4" />
-        +{formatPercent(change)}%
+      <span className="text-up flex items-center gap-1">
+        {showIcon && (
+          <ArrowUpRight className="size-4" />
+        )}
+        +{number.toFixed(2)}%
       </span>
     );
   }
 
-  if (change < 0) {
+  if (number < 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-down">
-        <ArrowDownRight className="size-4" />
-        {formatPercent(change)}%
+      <span className="text-down flex items-center gap-1">
+        {showIcon && (
+          <ArrowDownRight className="size-4" />
+        )}
+        {number.toFixed(2)}%
       </span>
     );
   }
@@ -197,454 +52,607 @@ function ChangeBadge({ value }) {
 }
 
 
+/*
+--------------------------------------------------
+METRIC CARD
+--------------------------------------------------
+*/
+
+function Metric({ label, value, sub }) {
+  return (
+    <div className="bg-card border border-border rounded-md p-4">
+      <div className="text-[10px] font-display tracking-widest text-muted-foreground">
+        {label}
+      </div>
+
+      <div className="font-display text-xl font-bold mt-2">
+        {value}
+      </div>
+
+      {sub && (
+        <div className="text-xs text-muted-foreground mt-1">
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/*
+--------------------------------------------------
+PRICE HISTORY CHART
+--------------------------------------------------
+
+Simple SVG chart.
+
+No external chart library required.
+*/
+
+function PriceChart({ history }) {
+  if (!history || history.length < 2) {
+    return (
+      <div className="h-72 flex items-center justify-center border border-dashed border-border rounded-md">
+        <div className="text-sm text-muted-foreground">
+          Not enough price history to display a chart.
+        </div>
+      </div>
+    );
+  }
+
+  const width = 900;
+  const height = 300;
+
+  const paddingLeft = 55;
+  const paddingRight = 20;
+  const paddingTop = 20;
+  const paddingBottom = 40;
+
+  const prices = history.map(
+    (item) => Number(item.price) || 0
+  );
+
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+
+  const range =
+    maxPrice - minPrice || 1;
+
+  const points = history.map(
+    (item, index) => {
+      const x =
+        paddingLeft +
+        (index /
+          Math.max(history.length - 1, 1)) *
+          (width -
+            paddingLeft -
+            paddingRight);
+
+      const y =
+        paddingTop +
+        ((maxPrice - Number(item.price)) /
+          range) *
+          (height -
+            paddingTop -
+            paddingBottom);
+
+      return {
+        x,
+        y,
+        price: Number(item.price),
+        time: item.time,
+      };
+    }
+  );
+
+  const linePoints = points
+    .map(
+      (point) =>
+        `${point.x},${point.y}`
+    )
+    .join(" ");
+
+  const areaPoints = [
+    `${paddingLeft},${height - paddingBottom}`,
+    ...points.map(
+      (point) =>
+        `${point.x},${point.y}`
+    ),
+    `${points[points.length - 1].x},${
+      height - paddingBottom
+    }`,
+  ].join(" ");
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full min-w-140 h-72"
+        preserveAspectRatio="none"
+      >
+        {/* Horizontal grid lines */}
+
+        {[0, 1, 2, 3, 4].map(
+          (line) => {
+            const y =
+              paddingTop +
+              (line / 4) *
+                (height -
+                  paddingTop -
+                  paddingBottom);
+
+            const value =
+              maxPrice -
+              (line / 4) * range;
+
+            return (
+              <g key={line}>
+                <line
+                  x1={paddingLeft}
+                  x2={width - paddingRight}
+                  y1={y}
+                  y2={y}
+                  stroke="currentColor"
+                  className="text-border"
+                  strokeWidth="1"
+                />
+
+                <text
+                  x="5"
+                  y={y + 4}
+                  className="fill-muted-foreground"
+                  fontSize="11"
+                >
+                  ₹{value.toFixed(0)}
+                </text>
+              </g>
+            );
+          }
+        )}
+
+        {/* Area */}
+
+        <polygon
+          points={areaPoints}
+          fill="currentColor"
+          className="text-primary opacity-10"
+        />
+
+        {/* Price line */}
+
+        <polyline
+          points={linePoints}
+          fill="none"
+          stroke="currentColor"
+          className="text-primary"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Data points */}
+
+        {points.map(
+          (point, index) => (
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r="3"
+              fill="currentColor"
+              className="text-primary"
+            />
+          )
+        )}
+
+        {/* Start label */}
+
+        <text
+          x={paddingLeft}
+          y={height - 12}
+          className="fill-muted-foreground"
+          fontSize="11"
+        >
+          {formatChartDate(
+            history[0]?.time
+          )}
+        </text>
+
+        {/* End label */}
+
+        <text
+          x={width - paddingRight}
+          y={height - 12}
+          textAnchor="end"
+          className="fill-muted-foreground"
+          fontSize="11"
+        >
+          {formatChartDate(
+            history[
+              history.length - 1
+            ]?.time
+          )}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+
+/*
+--------------------------------------------------
+CHART DATE
+--------------------------------------------------
+*/
+
+function formatChartDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+    }
+  );
+}
+
+
+/*
+--------------------------------------------------
+PRODUCT DETAILS
+--------------------------------------------------
+*/
+
 export default function ProductDetails() {
   const { id } = useParams();
 
-  const { has, toggle } = useWatchlist();
-
-  const [range, setRange] = useState(RANGES[0]);
-
-
   const {
     data: product,
-    error: prodErr,
-    loading: prodLoad,
+    error: productError,
+    loading: productLoading,
   } = useApi(
     () => api.product(id),
     [id]
   );
 
-
   const {
     data: history,
-    error: histErr,
+    error: historyError,
+    loading: historyLoading,
   } = useApi(
-    () => api.history(id).catch(() => []),
+    () => api.history(id),
     [id]
   );
 
 
-  if (prodLoad) {
+  /*
+  ----------------------------------------------
+  LOADING
+  ----------------------------------------------
+  */
+
+  if (productLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-4 w-32 bg-secondary rounded animate-pulse" />
-        <div className="h-8 w-2/3 bg-secondary rounded animate-pulse" />
-        <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
-
-        <div className="h-80 bg-card border border-border rounded-lg animate-pulse" />
+        <div className="h-4 w-32 bg-accent animate-pulse rounded" />
+        <div className="h-10 w-64 bg-accent animate-pulse rounded" />
+        <div className="h-72 bg-accent animate-pulse rounded-md" />
       </div>
     );
   }
 
 
-  if (prodErr) {
-    return <ApiError error={prodErr} />;
+  /*
+  ----------------------------------------------
+  ERROR
+  ----------------------------------------------
+  */
+
+  if (productError) {
+    return (
+      <ApiError error={productError} />
+    );
   }
 
 
   if (!product) {
     return (
-      <div className="text-center py-20 px-4">
-        <h1 className="text-xl font-bold">
-          Product not found
-        </h1>
-
-        <Link
-          to="/products"
-          className="
-            text-primary
-            text-sm
-            mt-2
-            inline-flex
-            items-center
-            gap-1
-          "
-        >
-          <ArrowLeft className="size-3" />
-          Back to products
-        </Link>
+      <div className="text-sm text-muted-foreground">
+        Product not found.
       </div>
     );
   }
 
 
-  const fullHistory = history || [];
+  const price = Number(
+    product.price
+  ) || 0;
 
-  const data = fullHistory.slice(-range.days);
+  const previousPrice =
+    product.previousPrice != null
+      ? Number(product.previousPrice)
+      : null;
 
-  const first =
-    data[0]?.price ??
-    product.currentPrice;
+  const priceChange =
+    Number(product.priceChange) || 0;
 
-  const periodChange =
-    first
-      ? ((product.currentPrice - first) / first) * 100
-      : 0;
+  const changePct =
+    Number(product.changePct) || 0;
 
-  const high =
-    data.length
-      ? Math.max(...data.map((d) => d.price))
-      : product.currentPrice;
+  const change24h =
+    Number(product.change24h) || 0;
 
-  const low =
-    data.length
-      ? Math.min(...data.map((d) => d.price))
-      : product.currentPrice;
+  const change7d =
+    Number(product.change7d) || 0;
 
 
-  const watchlisted = has(product.id);
+  /*
+  ----------------------------------------------
+  HISTORY
+  ----------------------------------------------
+  */
+
+  const priceHistory =
+    Array.isArray(history)
+      ? history
+      : [];
+
+
+  /*
+  ----------------------------------------------
+  HIGH / LOW
+  ----------------------------------------------
+  */
+
+  const historyPrices =
+    priceHistory
+      .map(
+        (item) =>
+          Number(item.price)
+      )
+      .filter(
+        (value) =>
+          Number.isFinite(value)
+      );
+
+  const historyHigh =
+    historyPrices.length
+      ? Math.max(
+          ...historyPrices
+        )
+      : price;
+
+  const historyLow =
+    historyPrices.length
+      ? Math.min(
+          ...historyPrices
+        )
+      : price;
+
+
+  /*
+  ----------------------------------------------
+  DIRECTION
+  ----------------------------------------------
+  */
+
+  const direction =
+    changePct > 0
+      ? "up"
+      : changePct < 0
+        ? "down"
+        : "flat";
 
 
   return (
-    <div className="w-full min-w-0">
+    <div className="space-y-8">
 
-      {/* =====================================================
+      {/* ---------------------------------------
           BACK
-      ====================================================== */}
+      ---------------------------------------- */}
 
       <Link
         to="/products"
-        className="
-          inline-flex
-          items-center
-          gap-1
-          text-xs
-          text-muted-foreground
-          hover:text-foreground
-          mb-5
-          sm:mb-6
-        "
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="size-3.5" />
-        Back to products
+        <ArrowLeft className="size-4" />
+        Back to Products
       </Link>
 
 
-      {/* =====================================================
+      {/* ---------------------------------------
           PRODUCT HEADER
-      ====================================================== */}
+      ---------------------------------------- */}
 
-      <section
-        className="
-          flex
-          flex-col
-          gap-5
-          lg:flex-row
-          lg:items-start
-          lg:justify-between
-          mb-6
-          sm:mb-8
-        "
-      >
+      <section className="bg-card border border-border rounded-md">
 
-        {/* Product identity */}
-        <div className="min-w-0">
+        <div className="p-5 md:p-7">
 
-          <div
-            className="
-              text-[9px]
-              sm:text-[10px]
-              font-display
-              tracking-widest
-              text-muted-foreground
-              mb-2
-              uppercase
-            "
-          >
-            {product.category || "OTHER"}
-            {" · "}
-            {product.supplier || "—"}
-          </div>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
 
+            <div>
 
-          <h1
-            className="
-              text-2xl
-              sm:text-3xl
-              lg:text-4xl
-              font-bold
-              tracking-tight
-              break-words
-            "
-          >
-            {product.name}
-          </h1>
+              <div className="text-[10px] font-display tracking-widest text-muted-foreground uppercase">
+                {product.category ||
+                  "Polymer"}
+              </div>
 
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-2">
+                {product.name}
+              </h1>
 
-          <div
-            className="
-              flex
-              flex-wrap
-              items-center
-              gap-x-2
-              gap-y-2
-              mt-3
-              text-xs
-              sm:text-sm
-              text-muted-foreground
-              font-mono
-            "
-          >
-            <span>{product.grade || "—"}</span>
+              <div className="text-sm text-muted-foreground mt-1">
+                {product.grade}
+              </div>
 
-            <span className="text-border">
-              ·
-            </span>
-
-            <span>{product.mfi || "—"}</span>
-
-            <span className="text-border">
-              ·
-            </span>
-
-            <span className="inline-flex items-center gap-1 min-w-0">
-              <MapPin className="size-3 shrink-0" />
-              <span className="truncate">
-                {product.location || "—"}
-              </span>
-            </span>
-          </div>
-
-        </div>
-
-
-        {/* Current price */}
-        <div
-          className="
-            w-full
-            lg:w-auto
-            lg:min-w-[230px]
-            lg:text-right
-            bg-card
-            border
-            border-border
-            rounded-lg
-            p-4
-            sm:p-5
-          "
-        >
-
-          <div className="text-[9px] font-display tracking-widest text-muted-foreground">
-            CURRENT PRICE
-          </div>
-
-          <div
-            className="
-              font-display
-              text-3xl
-              sm:text-4xl
-              font-bold
-              tracking-tight
-              mt-1
-            "
-          >
-            ₹{formatPrice(product.currentPrice)}
-          </div>
-
-          <div className="text-xs text-muted-foreground mt-1">
-            INR / KG
-          </div>
-
-          <div className="mt-3 text-sm font-display">
-            <ChangeBadge value={product.changePct} />
-            <span className="text-muted-foreground ml-1">
-              24h
-            </span>
-          </div>
-
-          {product.lastUpdated && (
-            <div className="text-[10px] text-muted-foreground mt-2">
-              Updated {formatDateTime(product.lastUpdated)}
             </div>
-          )}
+
+
+            <div className="lg:text-right">
+
+              <div className="font-display text-4xl md:text-5xl font-bold tracking-tight">
+                {formatPrice(price)}
+              </div>
+
+              <div className="text-sm text-muted-foreground mt-1">
+                per kg
+              </div>
+
+              <div className="flex lg:justify-end mt-3">
+                <ChangeValue
+                  value={changePct}
+                />
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* -----------------------------------
+              QUICK CHANGE
+          ------------------------------------ */}
+
+          <div className="border-t border-border mt-6 pt-5">
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+
+              <div
+                className={`flex items-center gap-2 font-display text-lg font-semibold ${
+                  direction === "up"
+                    ? "text-up"
+                    : direction === "down"
+                      ? "text-down"
+                      : "text-muted-foreground"
+                }`}
+              >
+
+                {direction === "up" && (
+                  <ArrowUpRight className="size-5" />
+                )}
+
+                {direction === "down" && (
+                  <ArrowDownRight className="size-5" />
+                )}
+
+                {formatRupeeChange(
+                  priceChange
+                )}
+
+              </div>
+
+
+              <div className="text-sm text-muted-foreground">
+                {formatChange(
+                  changePct
+                )}
+              </div>
+
+
+              <div className="hidden sm:block h-4 w-px bg-border" />
+
+
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <Clock className="size-3.5" />
+
+                Updated{" "}
+                {getRelativeTime(
+                  product.lastUpdated
+                )}
+              </div>
+
+            </div>
+
+          </div>
 
         </div>
 
       </section>
 
 
-      {/* =====================================================
-          ACTIONS
-      ====================================================== */}
+      {/* ---------------------------------------
+          PRICE METRICS
+      ---------------------------------------- */}
 
-      <div
-        className="
-          grid
-          grid-cols-2
-          sm:flex
-          sm:flex-wrap
-          gap-2
-          mb-6
-        "
-      >
+      <section>
 
-        <button
-          type="button"
-          onClick={() => toggle(product.id)}
-          aria-pressed={watchlisted}
-          className="
-            inline-flex
-            items-center
-            justify-center
-            gap-2
-            min-h-11
-            px-3
-            border
-            border-border
-            rounded-md
-            text-xs
-            sm:text-sm
-            hover:border-primary
-            hover:bg-accent
-            transition-colors
-          "
-        >
-          <Star
-            className={`
-              size-4
-              ${
-                watchlisted
-                  ? "fill-primary text-primary"
-                  : ""
-              }
-            `}
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="size-4 text-primary" />
+
+          <h2 className="text-sm font-semibold">
+            Price Intelligence
+          </h2>
+        </div>
+
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+          <Metric
+            label="24H CHANGE"
+            value={
+              formatChange(
+                change24h
+              )
+            }
+            sub="Compared with 24h ago"
           />
 
-          <span className="truncate">
-            {watchlisted
-              ? "In watchlist"
-              : "Add to watchlist"}
-          </span>
-        </button>
+
+          <Metric
+            label="7D CHANGE"
+            value={
+              formatChange(
+                change7d
+              )
+            }
+            sub="Compared with 7d ago"
+          />
 
 
-        <Link
-          to={`/alerts?productId=${product.id}`}
-          className="
-            inline-flex
-            items-center
-            justify-center
-            gap-2
-            min-h-11
-            px-3
-            border
-            border-border
-            rounded-md
-            text-xs
-            sm:text-sm
-            hover:border-primary
-            hover:bg-accent
-            transition-colors
-          "
-        >
-          <Bell className="size-4 shrink-0" />
-          <span>Set alert</span>
-        </Link>
+          <Metric
+            label="PREVIOUS PRICE"
+            value={
+              previousPrice != null
+                ? formatPrice(
+                    previousPrice
+                  )
+                : "—"
+            }
+            sub="Previous recorded price"
+          />
 
 
-        {product.datasheetUrl &&
-        product.datasheetUrl !== "#" ? (
-          <a
-            href={product.datasheetUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              min-h-11
-              px-3
-              border
-              border-border
-              rounded-md
-              text-xs
-              sm:text-sm
-              hover:border-primary
-              hover:bg-accent
-              transition-colors
-            "
-          >
-            <FileText className="size-4 shrink-0" />
-            <span>Datasheet</span>
-          </a>
-        ) : (
-          <span
-            className="
-              inline-flex
-              items-center
-              justify-center
-              gap-2
-              min-h-11
-              px-3
-              border
-              border-border
-              rounded-md
-              text-xs
-              sm:text-sm
-              text-muted-foreground/50
-            "
-          >
-            <FileText className="size-4" />
-            No datasheet
-          </span>
-        )}
+          <Metric
+            label="PRICE CHANGE"
+            value={
+              formatRupeeChange(
+                priceChange
+              )
+            }
+            sub="Since previous record"
+          />
+
+        </div>
+
+      </section>
 
 
-        <button
-          type="button"
-          className="
-            inline-flex
-            items-center
-            justify-center
-            gap-2
-            min-h-11
-            px-3
-            bg-primary
-            text-primary-foreground
-            rounded-md
-            text-xs
-            sm:text-sm
-            font-medium
-            hover:opacity-90
-            transition-opacity
-          "
-        >
-          Request Quote
-          <ChevronRight className="size-3.5" />
-        </button>
+      {/* ---------------------------------------
+          HISTORY CHART
+      ---------------------------------------- */}
 
-      </div>
+      <section className="bg-card border border-border rounded-md">
 
-
-      {/* =====================================================
-          PRICE HISTORY
-      ====================================================== */}
-
-      <section
-        className="
-          bg-card
-          border
-          border-border
-          rounded-lg
-          p-4
-          sm:p-5
-          mb-6
-        "
-      >
-
-        {/* Header */}
-        <div
-          className="
-            flex
-            flex-col
-            gap-4
-            sm:flex-row
-            sm:items-start
-            sm:justify-between
-            mb-5
-          "
-        >
+        <div className="px-5 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 
           <div>
             <h2 className="text-sm font-semibold">
@@ -652,342 +660,131 @@ export default function ProductDetails() {
             </h2>
 
             <p className="text-xs text-muted-foreground mt-1">
-              Indicative spot, INR per KG
+              Historical recorded prices
             </p>
           </div>
 
 
-          {/* Range selector */}
-          <div
-            className="
-              flex
-              gap-1
-              p-1
-              bg-secondary
-              rounded-md
-              w-full
-              sm:w-auto
-            "
-          >
-            {RANGES.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setRange(item)}
-                className={`
-                  flex-1
-                  sm:flex-none
-                  min-h-9
-                  px-3
-                  text-xs
-                  font-display
-                  tracking-wider
-                  rounded
-                  transition-colors
-                  ${
-                    range.key === item.key
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }
-                `}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="text-xs font-display text-muted-foreground">
+            {priceHistory.length} records
           </div>
 
         </div>
 
 
-        {/* Metrics */}
-        <div
-          className="
-            grid
-            grid-cols-3
-            gap-2
-            sm:gap-4
-            mb-6
-            p-3
-            sm:p-0
-            bg-secondary/30
-            sm:bg-transparent
-            rounded-md
-          "
-        >
+        <div className="p-5">
 
-          <Metric
-            label="PERIOD CHANGE"
-            value={`
-              ${periodChange > 0 ? "+" : ""}
-              ${formatPercent(periodChange)}%
-            `}
-            tone={
-              periodChange > 0
-                ? "up"
-                : periodChange < 0
-                  ? "down"
-                  : undefined
-            }
-          />
-
-          <Metric
-            label="PERIOD HIGH"
-            value={`₹${formatPrice(high)}`}
-          />
-
-          <Metric
-            label="PERIOD LOW"
-            value={`₹${formatPrice(low)}`}
-          />
-
-        </div>
-
-
-        {/* Chart */}
-        <div
-          className="
-            h-[260px]
-            sm:h-[320px]
-            lg:h-[360px]
-            w-full
-            min-w-0
-          "
-        >
-
-          {data.length === 0 ? (
-            <div
-              className="
-                h-full
-                flex
-                items-center
-                justify-center
-                text-sm
-                text-muted-foreground
-                text-center
-                px-4
-              "
-            >
-              {histErr
-                ? "Couldn't load price history."
-                : "No price history yet."}
+          {historyLoading && (
+            <div className="h-72 flex items-center justify-center text-sm text-muted-foreground">
+              Loading price history…
             </div>
-          ) : (
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-              <AreaChart
-                data={data}
-                margin={{
-                  top: 10,
-                  right: 4,
-                  left: -10,
-                  bottom: 0,
-                }}
-              >
-
-                <defs>
-                  <linearGradient
-                    id="priceGrad"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0.4}
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="var(--primary)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-
-
-                <CartesianGrid
-                  stroke="var(--border)"
-                  strokeDasharray="2 4"
-                  vertical={false}
-                />
-
-
-                <XAxis
-                  dataKey="date"
-                  stroke="var(--muted-foreground)"
-                  tick={{
-                    fontSize: 9,
-                    fontFamily:
-                      "var(--font-display)",
-                  }}
-                  tickFormatter={(value) =>
-                    String(value).slice(5)
-                  }
-                  minTickGap={30}
-                  tickMargin={6}
-                />
-
-
-                <YAxis
-                  stroke="var(--muted-foreground)"
-                  tick={{
-                    fontSize: 9,
-                    fontFamily:
-                      "var(--font-display)",
-                  }}
-                  domain={["auto", "auto"]}
-                  tickFormatter={(value) =>
-                    `₹${value}`
-                  }
-                  width={50}
-                />
-
-
-                <Tooltip
-                  contentStyle={{
-                    background:
-                      "var(--popover)",
-                    border:
-                      "1px solid var(--border)",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{
-                    color:
-                      "var(--muted-foreground)",
-                    fontFamily:
-                      "var(--font-display)",
-                  }}
-                  formatter={(value) => [
-                    `₹${Number(value).toFixed(2)}`,
-                    "Price",
-                  ]}
-                />
-
-
-                <Area
-                  type="monotone"
-                  dataKey="price"
-                  stroke="var(--primary)"
-                  strokeWidth={2}
-                  fill="url(#priceGrad)"
-                  dot={false}
-                  activeDot={{
-                    r: 4,
-                  }}
-                />
-
-              </AreaChart>
-            </ResponsiveContainer>
           )}
 
+
+          {!historyLoading &&
+            historyError && (
+              <div className="h-72 flex items-center justify-center text-sm text-down">
+                Unable to load price history.
+              </div>
+            )}
+
+
+          {!historyLoading &&
+            !historyError && (
+              <PriceChart
+                history={
+                  priceHistory
+                }
+              />
+            )}
+
         </div>
 
       </section>
 
 
-      {/* =====================================================
-          SUPPLIER INFORMATION
-      ====================================================== */}
+      {/* ---------------------------------------
+          HISTORY STATISTICS
+      ---------------------------------------- */}
 
-      <section
-        className="
-          bg-card
-          border
-          border-border
-          rounded-lg
-          p-4
-          sm:p-5
-        "
-      >
+      <section>
 
-        <h3 className="text-sm font-semibold mb-4">
-          Supplier Information
-        </h3>
+        <div className="flex items-center gap-2 mb-4">
+
+          {changePct >= 0 ? (
+            <TrendingUp className="size-4 text-up" />
+          ) : (
+            <TrendingDown className="size-4 text-down" />
+          )}
+
+          <h2 className="text-sm font-semibold">
+            Historical Range
+          </h2>
+
+        </div>
 
 
-        <dl className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 
-          <Row
-            k="Supplier"
-            v={product.supplier}
+          <Metric
+            label="HIGH"
+            value={formatPrice(
+              historyHigh
+            )}
+            sub="Highest recorded price"
           />
 
-          <Row
-            k="Plant / Location"
-            v={product.location}
+          <Metric
+            label="LOW"
+            value={formatPrice(
+              historyLow
+            )}
+            sub="Lowest recorded price"
           />
 
-          <Row
-            k="Category"
-            v={product.category}
+          <Metric
+            label="CURRENT"
+            value={formatPrice(
+              price
+            )}
+            sub="Latest price"
           />
 
-          <Row
-            k="Grade"
-            v={product.grade}
-          />
-
-          <Row
-            k="MFI / Specification"
-            v={product.mfi}
-          />
-
-          <Row
-            k="Last Updated"
-            v={formatDateTime(product.lastUpdated)}
-          />
-
-        </dl>
+        </div>
 
       </section>
 
 
-      {/* =====================================================
-          MOBILE BOTTOM ACTION
-      ====================================================== */}
+      {/* ---------------------------------------
+          LAST UPDATED
+      ---------------------------------------- */}
 
-      <div className="h-20 sm:hidden" />
+      <section className="border border-border rounded-md p-4 bg-card">
 
-      <div
-        className="
-          sm:hidden
-          fixed
-          bottom-0
-          left-0
-          right-0
-          z-30
-          border-t
-          border-border
-          bg-background/95
-          backdrop-blur
-          p-3
-        "
-      >
-        <Link
-          to="/products"
-          className="
-            flex
-            items-center
-            justify-center
-            gap-2
-            w-full
-            min-h-11
-            rounded-md
-            bg-primary
-            text-primary-foreground
-            text-sm
-            font-medium
-          "
-        >
-          <ArrowLeft className="size-4" />
-          Back to products
-        </Link>
-      </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+          <div>
+
+            <div className="text-[10px] font-display tracking-widest text-muted-foreground">
+              LAST UPDATED
+            </div>
+
+            <div className="text-sm font-semibold mt-1">
+              {formatLastUpdated(
+                product.lastUpdated
+              )}
+            </div>
+
+          </div>
+
+
+          <div className="text-xs text-muted-foreground">
+            Data: indicative / market reference
+          </div>
+
+        </div>
+
+      </section>
 
     </div>
   );

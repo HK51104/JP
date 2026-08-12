@@ -1,1128 +1,648 @@
-/*
-Products.jsx
-
-Responsibilities:
-1. Fetch products from the FastAPI backend.
-2. Search products by name, grade, supplier, or category.
-3. Filter products by category.
-4. Keep search/filter state in the URL.
-5. Support the existing watchlist functionality.
-6. Show a desktop table.
-7. Show responsive mobile product cards.
-8. Navigate to product details.
-9. Show price movement and update time.
-10. Handle loading, empty, and API-error states.
-*/
-
+import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useWatchlist } from "../lib/watchlist";
-import { api, useApi } from "../api";
-import ApiError from "../components/APIerror";
-
 import {
-  Search,
-  Star,
-  ArrowUpRight,
   ArrowDownRight,
-  FileText,
-  ChevronRight,
+  ArrowUpRight,
+  Search,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 
-
-function formatPrice(price) {
-  const value = Number(price);
-
-  if (!Number.isFinite(value)) {
-    return "0.00";
-  }
-
-  return value.toFixed(2);
-}
+import { api, useApi, formatPrice, formatChange } from "../api";
+import ApiError from "../components/APIerror";
 
 
-function formatChange(change) {
-  const value = Number(change);
+/*
+--------------------------------------------------
+CHANGE DISPLAY
+--------------------------------------------------
+*/
 
-  if (!Number.isFinite(value)) {
-    return "0.00";
-  }
+function Change({ value }) {
+  const number = Number(value) || 0;
 
-  return value.toFixed(2);
-}
-
-
-function formatUpdatedTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-
-function formatUpdatedDate(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleDateString([], {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-
-function ChangeValue({ value }) {
-  const change = Number(value) || 0;
-
-  if (change > 0) {
+  if (number > 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-up">
+      <span className="text-up flex items-center gap-1 font-display text-xs">
         <ArrowUpRight className="size-3.5" />
-        +{formatChange(change)}%
+        +{number.toFixed(2)}%
       </span>
     );
   }
 
-  if (change < 0) {
+  if (number < 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-down">
+      <span className="text-down flex items-center gap-1 font-display text-xs">
         <ArrowDownRight className="size-3.5" />
-        {formatChange(change)}%
+        {number.toFixed(2)}%
       </span>
     );
   }
 
   return (
-    <span className="text-muted-foreground">
+    <span className="text-muted-foreground font-display text-xs">
       0.00%
     </span>
   );
 }
 
 
-function WatchlistButton({ productId, has, toggle }) {
-  const active = has(productId);
+/*
+--------------------------------------------------
+PRODUCT ROW
+--------------------------------------------------
+*/
 
+function ProductRow({ product }) {
   return (
-    <button
-      type="button"
-      onClick={() => toggle(productId)}
-      aria-label={
-        active
-          ? "Remove product from watchlist"
-          : "Add product to watchlist"
-      }
-      aria-pressed={active}
-      className="
-        inline-flex
-        items-center
-        justify-center
-        size-9
-        rounded-md
-        border
-        border-border
-        hover:bg-accent
-        transition-colors
-        shrink-0
-      "
+    <Link
+      to={`/products/${product.id}`}
+      className="group grid grid-cols-[minmax(0,1fr)_110px_110px_110px] md:grid-cols-[minmax(0,1fr)_140px_130px_130px] items-center gap-3 px-4 py-4 border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors"
     >
-      <Star
-        className={`size-4 ${
-          active
-            ? "fill-primary text-primary"
-            : "text-muted-foreground"
-        }`}
-      />
-    </button>
-  );
-}
+      {/* PRODUCT */}
+
+      <div className="min-w-0">
+        <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+          {product.name}
+        </div>
+
+        <div className="text-xs text-muted-foreground mt-1 truncate">
+          {product.grade}
+        </div>
+      </div>
 
 
-function ProductMobileCard({ product, has, toggle }) {
-  return (
-    <article
-      className="
-        bg-card
-        border
-        border-border
-        rounded-lg
-        p-4
-        transition-colors
-        hover:border-primary/40
-      "
-    >
-      {/* Top section */}
-      <div className="flex items-start gap-3">
-        <WatchlistButton
-          productId={product.id}
-          has={has}
-          toggle={toggle}
+      {/* PRICE */}
+
+      <div className="text-right">
+        <div className="font-display font-semibold text-sm">
+          {formatPrice(product.price)}
+        </div>
+
+        <div className="text-[10px] text-muted-foreground mt-1">
+          INR / KG
+        </div>
+      </div>
+
+
+      {/* ₹ CHANGE */}
+
+      <div className="text-right">
+        <div
+          className={
+            product.priceChange > 0
+              ? "text-up font-display text-xs"
+              : product.priceChange < 0
+                ? "text-down font-display text-xs"
+                : "text-muted-foreground font-display text-xs"
+          }
+        >
+          {product.priceChange > 0
+            ? "+"
+            : product.priceChange < 0
+              ? "-"
+              : ""}
+          ₹{Math.abs(
+            Number(product.priceChange) || 0
+          ).toFixed(2)}
+        </div>
+
+        <div className="mt-1">
+          <Change
+            value={product.changePct}
+          />
+        </div>
+      </div>
+
+
+      {/* 24H */}
+
+      <div className="text-right">
+        <Change
+          value={product.change24h}
         />
 
-        <div className="min-w-0 flex-1">
-          <Link
-            to={`/products/${product.id}`}
-            className="
-              block
-              font-semibold
-              text-sm
-              leading-5
-              hover:text-primary
-              transition-colors
-            "
-          >
-            {product.name || "Unnamed product"}
-          </Link>
-
-          <div className="mt-1 text-xs text-muted-foreground">
-            {product.supplier || "—"}
-            {" · "}
-            {product.mfi || "—"}
-          </div>
-        </div>
-
-        <ChevronRight className="size-4 text-muted-foreground shrink-0 mt-1" />
-      </div>
-
-
-      {/* Category + grade */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span
-          className="
-            inline-flex
-            items-center
-            px-2
-            py-1
-            rounded
-            bg-secondary
-            text-[10px]
-            font-display
-            tracking-widest
-          "
-        >
-          {product.category || "OTHER"}
-        </span>
-
-        <span className="text-xs font-mono text-muted-foreground">
-          {product.grade || "—"}
-        </span>
-      </div>
-
-
-      {/* Main price */}
-      <div
-        className="
-          mt-4
-          flex
-          items-end
-          justify-between
-          gap-4
-        "
-      >
-        <div>
-          <div className="text-[10px] font-display tracking-widest text-muted-foreground">
-            CURRENT PRICE
-          </div>
-
-          <div className="mt-1 font-display text-2xl font-bold">
-            ₹{formatPrice(product.currentPrice)}
-          </div>
-
-          <div className="text-[10px] text-muted-foreground mt-0.5">
-            per kg
-          </div>
-        </div>
-
-        <div className="text-sm font-display font-semibold">
-          <ChangeValue value={product.changePct} />
+        <div className="text-[10px] text-muted-foreground mt-1">
+          24H
         </div>
       </div>
-
-
-      {/* Extra information */}
-      <div
-        className="
-          mt-4
-          pt-3
-          border-t
-          border-border
-          grid
-          grid-cols-2
-          gap-3
-        "
-      >
-        <div>
-          <div className="text-[9px] font-display tracking-widest text-muted-foreground">
-            LOCATION
-          </div>
-
-          <div className="mt-1 text-xs truncate">
-            {product.location || "—"}
-          </div>
-        </div>
-
-        <div className="text-right">
-          <div className="text-[9px] font-display tracking-widest text-muted-foreground">
-            UPDATED
-          </div>
-
-          <div className="mt-1 text-xs font-mono">
-            {formatUpdatedTime(product.lastUpdated)}
-          </div>
-
-          <div className="text-[9px] text-muted-foreground">
-            {formatUpdatedDate(product.lastUpdated)}
-          </div>
-        </div>
-      </div>
-
-
-      {/* Bottom actions */}
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <Link
-          to={`/products/${product.id}`}
-          className="
-            inline-flex
-            items-center
-            justify-center
-            min-h-10
-            px-3
-            rounded-md
-            bg-accent
-            text-xs
-            font-medium
-            hover:bg-accent/70
-            transition-colors
-          "
-        >
-          View details
-          <ChevronRight className="size-3.5 ml-1" />
-        </Link>
-
-        {product.datasheetUrl &&
-        product.datasheetUrl !== "#" ? (
-          <a
-            href={product.datasheetUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="
-              inline-flex
-              items-center
-              justify-center
-              min-h-10
-              px-3
-              rounded-md
-              border
-              border-border
-              text-xs
-              text-muted-foreground
-              hover:text-primary
-              hover:border-primary/50
-              transition-colors
-            "
-          >
-            <FileText className="size-3.5 mr-1.5" />
-            Datasheet
-          </a>
-        ) : (
-          <span
-            className="
-              inline-flex
-              items-center
-              justify-center
-              min-h-10
-              px-3
-              text-xs
-              text-muted-foreground/50
-            "
-          >
-            No datasheet
-          </span>
-        )}
-      </div>
-    </article>
+    </Link>
   );
 }
 
 
+/*
+--------------------------------------------------
+PRODUCTS PAGE
+--------------------------------------------------
+*/
+
 export default function Products() {
-  const [params, setParams] = useSearchParams();
-
-  const q = params.get("q") ?? "";
-  const category = params.get("category") ?? "ALL";
-
-  const {
-    has,
-    toggle,
-  } = useWatchlist();
+  const [searchParams, setSearchParams] =
+    useSearchParams();
 
   const {
     data: products,
     error,
     loading,
-  } = useApi(() => api.products(), []);
+  } = useApi(
+    () => api.products(),
+    []
+  );
 
 
   /*
-    Update one URL parameter while preserving
-    all other parameters.
+  ----------------------------------------------
+  SEARCH / FILTER STATE
+  ----------------------------------------------
   */
-  const setParam = (key, value) => {
-    const next = new URLSearchParams(params);
 
-    if (
-      !value ||
-      (value === "ALL" && key === "category")
-    ) {
-      next.delete(key);
-    } else {
-      next.set(key, value);
-    }
+  const initialCategory =
+    searchParams.get("category") || "All";
 
-    setParams(next, {
-      replace: true,
-    });
-  };
+  const [search, setSearch] =
+    React.useState("");
 
+  const [category, setCategory] =
+    React.useState(initialCategory);
 
-  const list = products || [];
+  const [sort, setSort] =
+    React.useState("default");
 
 
   /*
-    Create unique categories.
-
-    "OTHER" is kept as a fallback because some
-    backend products may not have a category.
+  ----------------------------------------------
+  LOAD
+  ----------------------------------------------
   */
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+
+        <div className="h-8 w-48 bg-accent animate-pulse rounded" />
+
+        <div className="h-12 w-full bg-accent animate-pulse rounded-md" />
+
+        <div className="h-96 bg-accent animate-pulse rounded-md" />
+
+      </div>
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  ERROR
+  ----------------------------------------------
+  */
+
+  if (error) {
+    return (
+      <ApiError error={error} />
+    );
+  }
+
+
+  const list =
+    Array.isArray(products)
+      ? products
+      : [];
+
+
+  /*
+  ----------------------------------------------
+  CATEGORIES
+  ----------------------------------------------
+  */
+
   const categories = [
-    "ALL",
-    ...new Set(
-      list.map((p) => p.category || "OTHER")
-    ),
+    "All",
+    ...Array.from(
+      new Set(
+        list
+          .map(
+            (product) =>
+              product.category
+          )
+          .filter(Boolean)
+      )
+    ).sort(),
   ];
 
 
   /*
-    Search + category filtering.
+  ----------------------------------------------
+  FILTER
+  ----------------------------------------------
   */
-  const term = q.toLowerCase().trim();
 
-  const filtered = list.filter((product) => {
-    const productCategory =
-      product.category || "OTHER";
+  const filtered = list.filter(
+    (product) => {
 
-    const matchCategory =
-      category === "ALL" ||
-      productCategory === category;
+      const searchText =
+        search
+          .trim()
+          .toLowerCase();
 
-    const name =
-      String(product.name || "").toLowerCase();
+      const matchesSearch =
+        !searchText ||
+        product.name
+          .toLowerCase()
+          .includes(searchText) ||
+        product.grade
+          .toLowerCase()
+          .includes(searchText) ||
+        String(
+          product.category || ""
+        )
+          .toLowerCase()
+          .includes(searchText);
 
-    const grade =
-      String(product.grade || "").toLowerCase();
+      const matchesCategory =
+        category === "All" ||
+        product.category === category;
 
-    const supplier =
-      String(product.supplier || "").toLowerCase();
+      return (
+        matchesSearch &&
+        matchesCategory
+      );
+    }
+  );
 
-    const mfi =
-      String(product.mfi || "").toLowerCase();
 
-    const location =
-      String(product.location || "").toLowerCase();
+  /*
+  ----------------------------------------------
+  SORT
+  ----------------------------------------------
+  */
 
-    const matchSearch =
-      !term ||
-      name.includes(term) ||
-      grade.includes(term) ||
-      supplier.includes(term) ||
-      mfi.includes(term) ||
-      location.includes(term) ||
-      productCategory.toLowerCase().includes(term);
+  const sorted = [
+    ...filtered,
+  ];
 
-    return matchCategory && matchSearch;
-  });
+  if (sort === "price-desc") {
+    sorted.sort(
+      (a, b) =>
+        b.price - a.price
+    );
+  }
 
+  if (sort === "price-asc") {
+    sorted.sort(
+      (a, b) =>
+        a.price - b.price
+    );
+  }
+
+  if (sort === "change-desc") {
+    sorted.sort(
+      (a, b) =>
+        b.changePct -
+        a.changePct
+    );
+  }
+
+  if (sort === "change-asc") {
+    sorted.sort(
+      (a, b) =>
+        a.changePct -
+        b.changePct
+    );
+  }
+
+  if (sort === "recent") {
+    sorted.sort(
+      (a, b) =>
+        new Date(
+          b.lastUpdated || 0
+        ) -
+        new Date(
+          a.lastUpdated || 0
+        )
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  CATEGORY UPDATE
+  ----------------------------------------------
+  */
+
+  function changeCategory(value) {
+    setCategory(value);
+
+    if (value === "All") {
+      searchParams.delete(
+        "category"
+      );
+    } else {
+      searchParams.set(
+        "category",
+        value
+      );
+    }
+
+    setSearchParams(
+      searchParams
+    );
+  }
+
+
+  /*
+  ----------------------------------------------
+  RESET
+  ----------------------------------------------
+  */
+
+  function resetFilters() {
+    setSearch("");
+    setCategory("All");
+    setSort("default");
+
+    setSearchParams({});
+  }
+
+
+  const hasFilters =
+    search ||
+    category !== "All" ||
+    sort !== "default";
+
+
+  /*
+  ----------------------------------------------
+  RENDER
+  ----------------------------------------------
+  */
 
   return (
-    <div className="w-full min-w-0">
-
-      {/* =====================================================
-          PAGE HEADER
-      ====================================================== */}
-
-      <div
-        className="
-          mb-6
-          flex
-          flex-col
-          gap-4
-          md:flex-row
-          md:items-end
-          md:justify-between
-        "
-      >
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Products
-          </h1>
-
-          <p className="text-sm text-muted-foreground mt-1">
-            {loading
-              ? "Loading market data…"
-              : `${filtered.length} grades · live indicative pricing`}
-          </p>
-        </div>
+    <div className="space-y-6">
 
 
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search
-            className="
-              absolute
-              left-3
-              top-1/2
-              -translate-y-1/2
-              size-4
-              text-muted-foreground
-            "
-          />
+      {/* ---------------------------------------
+          HEADER
+      ---------------------------------------- */}
 
-          <input
-            type="search"
-            value={q}
-            onChange={(event) =>
-              setParam("q", event.target.value)
-            }
-            placeholder="Search products, grades…"
-            aria-label="Search products"
-            className="
-              w-full
-              min-h-11
-              bg-card
-              border
-              border-border
-              rounded-md
-              pl-9
-              pr-3
-              text-sm
-              placeholder:text-muted-foreground
-              focus:outline-none
-              focus:border-primary
-              focus:ring-1
-              focus:ring-primary/30
-            "
-          />
-        </div>
+      <div>
+
+        <h1 className="text-2xl font-bold tracking-tight">
+          Products
+        </h1>
+
+        <p className="text-sm text-muted-foreground mt-1">
+          Polymer grades and indicative
+          market prices.
+        </p>
+
       </div>
 
 
-      {/* =====================================================
-          ERROR
-      ====================================================== */}
+      {/* ---------------------------------------
+          FILTER PANEL
+      ---------------------------------------- */}
 
-      {error ? (
-        <ApiError error={error} />
-      ) : (
-        <>
+      <div className="bg-card border border-border rounded-md p-4">
+
+        <div className="flex items-center gap-2 mb-4">
+
+          <SlidersHorizontal className="size-4 text-primary" />
+
+          <span className="text-sm font-semibold">
+            Search & Filters
+          </span>
+
+          <span className="text-xs text-muted-foreground ml-auto">
+            {sorted.length} of {list.length}
+          </span>
+
+        </div>
 
 
-          {/* =================================================
-              CATEGORY FILTERS
-          ================================================== */}
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px_180px_auto] gap-3">
 
-          <div
-            className="
-              -mx-1
-              px-1
-              mb-6
-              overflow-x-auto
-              scrollbar-none
-            "
-          >
-            <div className="flex gap-2 min-w-max">
-              {categories.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() =>
-                    setParam("category", item)
-                  }
-                  aria-pressed={category === item}
-                  className={`
-                    min-h-10
-                    px-3
-                    rounded-md
-                    border
-                    text-xs
-                    font-display
-                    tracking-wider
-                    whitespace-nowrap
-                    transition-colors
-                    ${
-                      category === item
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-accent"
-                    }
-                  `}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+
+          {/* SEARCH */}
+
+          <div className="relative">
+
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search products or grades..."
+              className="w-full h-10 pl-9 pr-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary transition-colors"
+            />
+
           </div>
 
 
-          {/* =================================================
-              ACTIVE FILTER SUMMARY
-          ================================================== */}
+          {/* CATEGORY */}
 
-          {(q || category !== "ALL") && (
-            <div
-              className="
-                mb-4
-                flex
-                flex-wrap
-                items-center
-                gap-2
-                text-xs
-                text-muted-foreground
-              "
+          <select
+            value={category}
+            onChange={(event) =>
+              changeCategory(
+                event.target.value
+              )
+            }
+            className="h-10 px-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary"
+          >
+            {categories.map(
+              (item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item === "All"
+                    ? "All Categories"
+                    : item}
+                </option>
+              )
+            )}
+          </select>
+
+
+          {/* SORT */}
+
+          <select
+            value={sort}
+            onChange={(event) =>
+              setSort(
+                event.target.value
+              )
+            }
+            className="h-10 px-3 rounded-md border border-border bg-background text-sm outline-none focus:border-primary"
+          >
+            <option value="default">
+              Sort: Default
+            </option>
+
+            <option value="price-desc">
+              Price: High → Low
+            </option>
+
+            <option value="price-asc">
+              Price: Low → High
+            </option>
+
+            <option value="change-desc">
+              Change: Highest
+            </option>
+
+            <option value="change-asc">
+              Change: Lowest
+            </option>
+
+            <option value="recent">
+              Recently Updated
+            </option>
+          </select>
+
+
+          {/* RESET */}
+
+          {hasFilters ? (
+            <button
+              onClick={resetFilters}
+              className="h-10 px-3 inline-flex items-center justify-center gap-2 rounded-md border border-border text-sm hover:bg-accent transition-colors"
             >
-              <span>
-                Showing {filtered.length} result
-                {filtered.length === 1 ? "" : "s"}
-              </span>
-
-              {category !== "ALL" && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setParam("category", "ALL")
-                  }
-                  className="
-                    px-2
-                    py-1
-                    rounded
-                    bg-accent
-                    hover:bg-accent/70
-                    transition-colors
-                  "
-                >
-                  {category} ×
-                </button>
-              )}
-
-              {q && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setParam("q", "")
-                  }
-                  className="
-                    px-2
-                    py-1
-                    rounded
-                    bg-accent
-                    hover:bg-accent/70
-                    transition-colors
-                  "
-                >
-                  "{q}" ×
-                </button>
-              )}
-            </div>
+              <X className="size-4" />
+              Reset
+            </button>
+          ) : (
+            <div />
           )}
 
+        </div>
 
-          {/* =================================================
-              MOBILE VIEW
-          ================================================== */}
 
-          <div className="md:hidden">
+        {/* CATEGORY CHIPS */}
 
-            {loading && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="
-                      bg-card
-                      border
-                      border-border
-                      rounded-lg
-                      p-4
-                      animate-pulse
-                    "
-                  >
-                    <div className="h-4 bg-secondary rounded w-2/3" />
-                    <div className="h-3 bg-secondary rounded w-1/3 mt-2" />
-                    <div className="h-8 bg-secondary rounded w-1/2 mt-5" />
-                    <div className="h-3 bg-secondary rounded w-full mt-4" />
-                  </div>
-                ))}
+        <div className="flex gap-2 overflow-x-auto pt-4 pb-1">
+
+          {categories.map(
+            (item) => (
+              <button
+                key={item}
+                onClick={() =>
+                  changeCategory(item)
+                }
+                className={`shrink-0 px-3 py-1.5 rounded-md border text-xs font-display transition-colors ${
+                  category === item
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                {item}
+              </button>
+            )
+          )}
+
+        </div>
+
+      </div>
+
+
+      {/* ---------------------------------------
+          PRODUCT TABLE
+      ---------------------------------------- */}
+
+      <div className="bg-card border border-border rounded-md overflow-hidden">
+
+        {/* TABLE HEADER */}
+
+        <div className="overflow-x-auto">
+
+          <div className="min-w-[680px]">
+
+            <div className="grid grid-cols-[minmax(0,1fr)_110px_110px_110px] md:grid-cols-[minmax(0,1fr)_140px_130px_130px] gap-3 px-4 py-3 border-b border-border bg-accent/30 text-[10px] font-display tracking-widest text-muted-foreground">
+
+              <div>
+                PRODUCT
+              </div>
+
+              <div className="text-right">
+                PRICE
+              </div>
+
+              <div className="text-right">
+                CHANGE
+              </div>
+
+              <div className="text-right">
+                24H
+              </div>
+
+            </div>
+
+
+            {/* EMPTY */}
+
+            {sorted.length === 0 && (
+              <div className="py-16 text-center">
+
+                <div className="text-sm font-medium">
+                  No products found
+                </div>
+
+                <div className="text-xs text-muted-foreground mt-1">
+                  Try changing your search
+                  or filters.
+                </div>
+
+                <button
+                  onClick={resetFilters}
+                  className="mt-4 text-xs text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+
               </div>
             )}
 
 
-            {!loading &&
-              filtered.length === 0 && (
-                <div
-                  className="
-                    bg-card
-                    border
-                    border-border
-                    rounded-lg
-                    px-4
-                    py-12
-                    text-center
-                  "
-                >
-                  <Search
-                    className="
-                      size-8
-                      mx-auto
-                      text-muted-foreground/50
-                    "
-                  />
+            {/* PRODUCTS */}
 
-                  <div className="mt-3 text-sm font-medium">
-                    No products found
-                  </div>
-
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Try changing your search or category filter.
-                  </div>
-
-                  {(q || category !== "ALL") && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setParams(
-                          {},
-                          { replace: true }
-                        );
-                      }}
-                      className="
-                        mt-4
-                        px-3
-                        py-2
-                        rounded-md
-                        bg-primary
-                        text-primary-foreground
-                        text-xs
-                        font-medium
-                      "
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-              )}
-
-
-            {!loading &&
-              filtered.length > 0 && (
-                <div className="space-y-3">
-                  {filtered.map((product) => (
-                    <ProductMobileCard
-                      key={product.id}
-                      product={product}
-                      has={has}
-                      toggle={toggle}
-                    />
-                  ))}
-                </div>
-              )}
+            {sorted.map(
+              (product) => (
+                <ProductRow
+                  key={product.id}
+                  product={product}
+                />
+              )
+            )}
 
           </div>
 
+        </div>
 
-          {/* =================================================
-              DESKTOP / TABLET VIEW
-          ================================================== */}
-
-          <div
-            className="
-              hidden
-              md:block
-              bg-card
-              border
-              border-border
-              rounded-md
-              overflow-hidden
-            "
-          >
-            <div className="overflow-x-auto">
-
-              <table className="w-full text-sm">
-
-                <thead
-                  className="
-                    bg-secondary/50
-                    text-[10px]
-                    font-display
-                    tracking-widest
-                    text-muted-foreground
-                  "
-                >
-                  <tr>
-
-                    <th
-                      className="
-                        text-left
-                        px-4
-                        py-3
-                        w-12
-                      "
-                    />
-
-                    <th className="text-left px-4 py-3">
-                      PRODUCT
-                    </th>
-
-                    <th className="text-left px-4 py-3">
-                      GRADE
-                    </th>
-
-                    <th
-                      className="
-                        text-left
-                        px-4
-                        py-3
-                        hidden
-                        md:table-cell
-                      "
-                    >
-                      CATEGORY
-                    </th>
-
-                    <th
-                      className="
-                        text-left
-                        px-4
-                        py-3
-                        hidden
-                        lg:table-cell
-                      "
-                    >
-                      LOCATION
-                    </th>
-
-                    <th
-                      className="
-                        text-right
-                        px-4
-                        py-3
-                      "
-                    >
-                      PRICE (₹/KG)
-                    </th>
-
-                    <th
-                      className="
-                        text-right
-                        px-4
-                        py-3
-                      "
-                    >
-                      24H
-                    </th>
-
-                    <th
-                      className="
-                        text-right
-                        px-4
-                        py-3
-                        hidden
-                        lg:table-cell
-                      "
-                    >
-                      UPDATED
-                    </th>
-
-                    <th className="text-right px-4 py-3">
-                      ACTIONS
-                    </th>
-
-                  </tr>
-                </thead>
+      </div>
 
 
-                <tbody className="divide-y divide-border">
+      {/* ---------------------------------------
+          FOOTER INFO
+      ---------------------------------------- */}
 
-                  {loading && (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="
-                          px-4
-                          py-16
-                          text-center
-                          text-sm
-                          text-muted-foreground
-                        "
-                      >
-                        Loading products…
-                      </td>
-                    </tr>
-                  )}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground">
 
+        <span>
+          Showing {sorted.length} of{" "}
+          {list.length} products
+        </span>
 
-                  {!loading &&
-                    filtered.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={9}
-                          className="
-                            px-4
-                            py-16
-                            text-center
-                            text-sm
-                            text-muted-foreground
-                          "
-                        >
-                          No products match your filters.
-                        </td>
-                      </tr>
-                    )}
+        <span>
+          Prices are indicative and
+          denominated in INR/kg.
+        </span>
 
-
-                  {!loading &&
-                    filtered.map((product) => (
-                      <tr
-                        key={product.id}
-                        className="
-                          hover:bg-accent/40
-                          transition-colors
-                        "
-                      >
-
-                        {/* Watchlist */}
-                        <td className="px-4 py-3">
-                          <WatchlistButton
-                            productId={product.id}
-                            has={has}
-                            toggle={toggle}
-                          />
-                        </td>
-
-
-                        {/* Product */}
-                        <td className="px-4 py-3">
-                          <Link
-                            to={`/products/${product.id}`}
-                            className="
-                              font-medium
-                              hover:text-primary
-                              transition-colors
-                            "
-                          >
-                            {product.name || "Unnamed product"}
-                          </Link>
-
-                          <div
-                            className="
-                              text-xs
-                              text-muted-foreground
-                              mt-0.5
-                            "
-                          >
-                            {product.supplier || "—"}
-                            {" · "}
-                            {product.mfi || "—"}
-                          </div>
-                        </td>
-
-
-                        {/* Grade */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            font-mono
-                            text-xs
-                          "
-                        >
-                          {product.grade || "—"}
-                        </td>
-
-
-                        {/* Category */}
-                        <td className="px-4 py-3">
-                          <span
-                            className="
-                              text-[10px]
-                              font-display
-                              tracking-widest
-                              px-2
-                              py-1
-                              bg-secondary
-                              rounded
-                            "
-                          >
-                            {product.category || "OTHER"}
-                          </span>
-                        </td>
-
-
-                        {/* Location */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            hidden
-                            lg:table-cell
-                            text-muted-foreground
-                            text-xs
-                          "
-                        >
-                          {product.location || "—"}
-                        </td>
-
-
-                        {/* Price */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            text-right
-                            font-display
-                            font-semibold
-                            whitespace-nowrap
-                          "
-                        >
-                          ₹{formatPrice(product.currentPrice)}
-                        </td>
-
-
-                        {/* Change */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            text-right
-                            font-display
-                            text-xs
-                            whitespace-nowrap
-                          "
-                        >
-                          <ChangeValue
-                            value={product.changePct}
-                          />
-                        </td>
-
-
-                        {/* Updated */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            text-right
-                            text-xs
-                            text-muted-foreground
-                            hidden
-                            lg:table-cell
-                            font-mono
-                          "
-                        >
-                          {formatUpdatedTime(
-                            product.lastUpdated
-                          )}
-                        </td>
-
-
-                        {/* Actions */}
-                        <td
-                          className="
-                            px-4
-                            py-3
-                            text-right
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              justify-end
-                              gap-2
-                            "
-                          >
-
-                            <Link
-                              to={`/products/${product.id}`}
-                              className="
-                                inline-flex
-                                items-center
-                                justify-center
-                                size-8
-                                rounded
-                                hover:bg-accent
-                                text-muted-foreground
-                                hover:text-primary
-                                transition-colors
-                              "
-                              title="View product"
-                              aria-label="View product"
-                            >
-                              <ChevronRight className="size-4" />
-                            </Link>
-
-
-                            {product.datasheetUrl &&
-                            product.datasheetUrl !== "#" ? (
-                              <a
-                                href={product.datasheetUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="
-                                  inline-flex
-                                  items-center
-                                  justify-center
-                                  size-8
-                                  rounded
-                                  hover:bg-accent
-                                  text-muted-foreground
-                                  hover:text-primary
-                                  transition-colors
-                                "
-                                title="Datasheet"
-                                aria-label="Open datasheet"
-                              >
-                                <FileText className="size-3.5" />
-                              </a>
-                            ) : null}
-
-                          </div>
-                        </td>
-
-                      </tr>
-                    ))}
-
-                </tbody>
-              </table>
-
-            </div>
-          </div>
-
-        </>
-      )}
+      </div>
 
     </div>
   );
