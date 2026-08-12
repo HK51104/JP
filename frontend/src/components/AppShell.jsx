@@ -10,6 +10,7 @@ all pages:
 - Header
 - Logo
 - Navigation
+- Mobile navigation menu
 - Live data indicator
 - Theme toggle
 - Main page container
@@ -18,10 +19,14 @@ all pages:
 The actual page displayed inside the layout comes from the `children`
 prop, which is provided by App.jsx.
 
-The live ticker now uses real product data from the backend instead
-of hardcoded demo values.
+Mobile behavior:
+- Desktop navigation remains unchanged.
+- On mobile, navigation is replaced by a hamburger button.
+- The mobile menu opens below the header.
+- Clicking a navigation item closes the menu.
 */
 
+import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 
 import {
@@ -30,12 +35,13 @@ import {
   Boxes,
   Star,
   BellRing,
+  Menu,
+  X,
 } from "lucide-react";
 
 import ThemeToggle from "./ThemeToggle";
 
 import { api, useApi } from "../api";
-
 
 const NAV = [
   {
@@ -61,93 +67,61 @@ const NAV = [
   },
 ];
 
-
 export default function AppShell({ children }) {
+  /*
+    Mobile menu state.
+
+    false = menu closed
+    true  = menu open
+  */
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   /*
-    Fetch the products from the backend.
+    Fetch products from the backend.
 
-    The backend now returns products containing:
-
-    {
-      id,
-      name,
-      supplier,
-      grade,
-      category,
-      currentPrice,
-      changePct,
-      lastUpdated,
-      ...
-    }
-
-    We use the same API layer already used by Dashboard.jsx.
+    The same API layer is already used by Dashboard.jsx.
   */
-
-  const {
-    data: products,
-  } = useApi(() => api.products(), []);
-
+  const { data: products } = useApi(() => api.products(), []);
 
   /*
-    Make sure we always have an array.
+    Always work with an array.
 
-    While the API is loading, products may be null.
-    Using [] prevents errors such as:
-
-    products.sort(...)
-    products.map(...)
-
-    when the data hasn't arrived yet.
+    While the API is loading, products can be null.
   */
-
   const list = products || [];
 
-
   /*
-    Create a copy of the products array and sort it
-    from the biggest positive price movement to the
-    biggest negative price movement.
-
-    We use [...list] so the original API data is NOT modified.
+    Sort products from biggest positive price movement
+    to biggest negative price movement.
   */
-
   const sortedProducts = [...list].sort(
     (a, b) => b.changePct - a.changePct
   );
 
-
   /*
     Biggest gainer.
-
-    Example:
-
-    PP IOCL       +2.31%
-    HDPE ABC      +1.42%
-    PVC XYZ       -0.72%
-
-    topGainer = PP IOCL
   */
-
-  const topGainer = sortedProducts[0];
-
+  const topGainer = sortedProducts[0] || null;
 
   /*
     Biggest loser.
-
-    Because the array is sorted from highest change
-    to lowest change, the last item is the biggest loser.
   */
-
   const topLoser =
     sortedProducts.length > 0
       ? sortedProducts[sortedProducts.length - 1]
       : null;
 
+  /*
+    Close the mobile menu.
+
+    This is called whenever the user clicks a navigation item.
+  */
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
-
       {/* =========================================================
           LIVE MARKET TICKER
           ========================================================= */}
@@ -160,15 +134,17 @@ export default function AppShell({ children }) {
           bg-card
           flex
           items-center
-          px-4
-          gap-6
+          px-3
+          sm:px-4
+          gap-4
+          sm:gap-6
           overflow-hidden
-          text-[11px]
+          text-[10px]
+          sm:text-[11px]
           font-display
         "
       >
-
-        {/* POLYMETRIC LIVE label */}
+        {/* POLYMETRIC LIVE */}
 
         <div
           className="
@@ -183,9 +159,14 @@ export default function AppShell({ children }) {
         >
           <Activity className="size-3 animate-pulse" />
 
-          POLYMETRIC LIVE
-        </div>
+          <span className="hidden sm:inline">
+            POLYMETRIC LIVE
+          </span>
 
+          <span className="sm:hidden">
+            LIVE
+          </span>
+        </div>
 
         {/* ---------------------------------------------------------
             TOP GAINER
@@ -200,8 +181,9 @@ export default function AppShell({ children }) {
             <span
               className="
                 truncate
-                max-w-32
-                sm:max-w-48
+                max-w-24
+                sm:max-w-32
+                md:max-w-48
                 shrink-0
               "
               title={topGainer.name}
@@ -221,13 +203,12 @@ export default function AppShell({ children }) {
           </>
         )}
 
-
         {/* ---------------------------------------------------------
             TOP LOSER
             --------------------------------------------------------- */}
 
         {topLoser && (
-          <>
+          <div className="hidden sm:flex items-center gap-4">
             <span className="text-muted-foreground shrink-0">
               {topLoser.category || "POLYMER"}
             </span>
@@ -236,7 +217,7 @@ export default function AppShell({ children }) {
               className="
                 truncate
                 max-w-32
-                sm:max-w-48
+                md:max-w-48
                 shrink-0
               "
               title={topLoser.name}
@@ -253,15 +234,11 @@ export default function AppShell({ children }) {
               {topLoser.changePct >= 0 ? "+" : ""}
               {Number(topLoser.changePct).toFixed(2)}%
             </span>
-          </>
+          </div>
         )}
-
 
         {/* ---------------------------------------------------------
             UTC CLOCK
-
-            Hidden on smaller screens so the ticker doesn't
-            become overcrowded.
             --------------------------------------------------------- */}
 
         <span
@@ -269,15 +246,13 @@ export default function AppShell({ children }) {
             ml-auto
             text-muted-foreground
             hidden
-            md:inline
+            lg:inline
             shrink-0
           "
         >
           UTC {new Date().toUTCString().slice(17, 25)}
         </span>
-
       </div>
-
 
       {/* =========================================================
           HEADER
@@ -288,9 +263,10 @@ export default function AppShell({ children }) {
           border-b
           border-border
           bg-background
+          relative
+          z-40
         "
       >
-
         <div
           className="
             max-w-350
@@ -301,16 +277,15 @@ export default function AppShell({ children }) {
             flex
             items-center
             gap-4
-            sm:gap-8
           "
         >
-
           {/* -------------------------------------------------------
               LOGO
               ------------------------------------------------------- */}
 
           <Link
             to="/"
+            onClick={closeMobileMenu}
             className="
               font-display
               font-bold
@@ -325,21 +300,18 @@ export default function AppShell({ children }) {
             </span>
           </Link>
 
-
           {/* -------------------------------------------------------
-              NAVIGATION
+              DESKTOP NAVIGATION
               ------------------------------------------------------- */}
 
           <nav
             className="
-              flex
+              hidden
+              md:flex
               items-center
               gap-1
-              overflow-x-auto
-              scrollbar-none
             "
           >
-
             {NAV.map((n) => (
               <NavLink
                 key={n.to}
@@ -350,8 +322,7 @@ export default function AppShell({ children }) {
                     flex
                     items-center
                     gap-2
-                    px-2
-                    sm:px-3
+                    px-3
                     py-1.5
                     text-sm
                     rounded-md
@@ -365,16 +336,12 @@ export default function AppShell({ children }) {
                   `
                 }
               >
-
                 <n.icon className="size-3.5 shrink-0" />
 
                 {n.label}
-
               </NavLink>
             ))}
-
           </nav>
-
 
           {/* -------------------------------------------------------
               RIGHT SIDE CONTROLS
@@ -390,7 +357,6 @@ export default function AppShell({ children }) {
               shrink-0
             "
           >
-
             {/* Live data indicator */}
 
             <div
@@ -404,7 +370,6 @@ export default function AppShell({ children }) {
                 text-muted-foreground
               "
             >
-
               <div
                 className="
                   size-1.5
@@ -415,20 +380,128 @@ export default function AppShell({ children }) {
               />
 
               LIVE DATA
-
             </div>
-
 
             {/* Theme toggle */}
 
             <ThemeToggle />
 
-          </div>
+            {/* -----------------------------------------------------
+                MOBILE MENU BUTTON
+                ----------------------------------------------------- */}
 
+            <button
+              type="button"
+              onClick={() =>
+                setMobileMenuOpen((open) => !open)
+              }
+              className="
+                md:hidden
+                inline-flex
+                items-center
+                justify-center
+                size-9
+                rounded-md
+                border
+                border-border
+                text-muted-foreground
+                hover:text-foreground
+                hover:bg-accent
+                transition-colors
+              "
+              aria-label={
+                mobileMenuOpen
+                  ? "Close navigation menu"
+                  : "Open navigation menu"
+              }
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                <X className="size-4" />
+              ) : (
+                <Menu className="size-4" />
+              )}
+            </button>
+          </div>
         </div>
 
-      </header>
+        {/* =========================================================
+            MOBILE NAVIGATION MENU
+            ========================================================= */}
 
+        {mobileMenuOpen && (
+          <div
+            className="
+              md:hidden
+              border-t
+              border-border
+              bg-background
+              px-4
+              py-3
+            "
+          >
+            <nav className="flex flex-col gap-1">
+              {NAV.map((n) => (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.end}
+                  onClick={closeMobileMenu}
+                  className={({ isActive }) =>
+                    `
+                      flex
+                      items-center
+                      gap-3
+                      px-3
+                      py-3
+                      rounded-md
+                      text-sm
+                      transition-colors
+                      ${
+                        isActive
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }
+                    `
+                  }
+                >
+                  <n.icon className="size-4 shrink-0" />
+
+                  <span>{n.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            {/* Mobile live indicator */}
+
+            <div
+              className="
+                mt-3
+                pt-3
+                border-t
+                border-border
+                flex
+                items-center
+                gap-2
+                text-[11px]
+                font-display
+                text-muted-foreground
+              "
+            >
+              <div
+                className="
+                  size-1.5
+                  rounded-full
+                  bg-up
+                  animate-pulse
+                "
+              />
+
+              LIVE DATA
+            </div>
+          </div>
+        )}
+      </header>
 
       {/* =========================================================
           MAIN CONTENT
@@ -444,11 +517,11 @@ export default function AppShell({ children }) {
           sm:px-6
           py-6
           sm:py-8
+          overflow-x-hidden
         "
       >
         {children}
       </main>
-
 
       {/* =========================================================
           FOOTER
@@ -474,7 +547,6 @@ export default function AppShell({ children }) {
           w-full
         "
       >
-
         <span>
           © 2026 POLYMETRIC INTELLIGENCE · ALL VALUES INR/KG
         </span>
@@ -482,9 +554,7 @@ export default function AppShell({ children }) {
         <span>
           DATA: INDICATIVE / DEMO
         </span>
-
       </footer>
-
     </div>
   );
 }
