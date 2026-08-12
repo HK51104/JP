@@ -389,3 +389,32 @@ export function computeTopMovers(products)
   return { gainers: sorted.slice(0, 3), losers: sorted.slice(-3).reverse() };
   // Return an object with two properties: gainers and losers. The gainers property contains the top 3 products with the highest changePct, while the losers property contains the bottom 3 products with the lowest changePct (reversed to show the worst first).
 }
+
+export function computeDashboardStats(products) {
+  const list = products || [];
+
+  const categories = [
+    ...new Set(
+      list
+        .map((p) => p.category)
+        .filter(Boolean)
+    ),
+  ];
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const updatedToday = list.filter(
+    (p) => (p.lastUpdated || "").startsWith(today)
+  ).length;
+
+  const avgChange = list.length
+    ? list.reduce((total, p) => total + Number(p.changePct || 0), 0) /
+      list.length
+    : 0;
+
+  return {
+    categories,
+    updatedToday,
+    avgChange,
+  };
+}

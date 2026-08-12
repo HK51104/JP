@@ -26,6 +26,7 @@ import {
   useApi,
   computeCategoryAverages,
   computeTopMovers,
+  computeDashboardStats,
 } from "../api";
 
 import ApiError from "../components/APIerror";
@@ -80,19 +81,11 @@ export default function Dashboard() {
   const avgs = computeCategoryAverages(list);
   const movers = computeTopMovers(list);
 
-  const categories = [
-    ...new Set(list.map((p) => p.category)),
-  ];
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  const updatedToday = list.filter(
-    (p) => (p.lastUpdated || "").startsWith(today)
-  ).length;
-
-  const avgChange = list.length
-    ? list.reduce((a, p) => a + p.changePct, 0) / list.length
-    : 0;
+const {
+  categories,
+  updatedToday,
+  avgChange,
+} = computeDashboardStats(list);
 
 
   return (
