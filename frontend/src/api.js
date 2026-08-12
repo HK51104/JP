@@ -210,7 +210,7 @@ export function normalizeHistory(rows)
 
 // ---------- Endpoint helpers ----------
 export const api = {
-  products: () =>
+ products: () =>
   getJSON("/products").then((d) => {
     console.log("RAW BACKEND PRODUCTS:", d);
 
