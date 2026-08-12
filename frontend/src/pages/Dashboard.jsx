@@ -1,22 +1,17 @@
+
 /*
 Dashboard.jsx
+
+Responsive dashboard for POLYMETRIC.
 
 Responsibilities:
 1. Fetch products from the backend.
 2. Handle loading and API errors.
-3. Calculate dashboard statistics.
-4. Calculate category averages.
-5. Calculate top movers.
-6. Render the market overview.
-7. Remain responsive across mobile, tablet and desktop.
-
-Mobile-first improvements:
-- 2-column statistic cards on phones.
-- Responsive category grid.
-- Responsive Top Movers section.
-- Comfortable touch targets.
-- No unnecessary horizontal overflow.
-- Better empty-state handling.
+3. Calculate category averages.
+4. Calculate top gainers and losers.
+5. Show market statistics.
+6. Show browse-by-category links.
+7. Remain fully responsive on mobile, tablet and desktop.
 */
 
 import { Link } from "react-router-dom";
@@ -35,15 +30,10 @@ import {
   useApi,
   computeCategoryAverages,
   computeTopMovers,
-  computeDashboardStats,
 } from "../api";
 
 import ApiError from "../components/APIerror";
 
-
-/* =========================================================
-   STAT CARD
-   ========================================================= */
 
 function Stat({ icon: Icon, label, value, sub }) {
   return (
@@ -52,45 +42,34 @@ function Stat({ icon: Icon, label, value, sub }) {
         bg-card
         border
         border-border
-        rounded-md
-        p-3
+        rounded-lg
+        p-4
         sm:p-5
         min-w-0
-        overflow-hidden
       "
     >
-      {/* Header */}
-
-      <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+      <div className="flex items-center justify-between mb-3">
         <span
           className="
-            text-[8px]
+            text-[9px]
             sm:text-[10px]
             font-display
             tracking-widest
             text-muted-foreground
             truncate
+            pr-2
           "
         >
           {label}
         </span>
 
-        <Icon
-          className="
-            size-3.5
-            sm:size-4
-            text-muted-foreground
-            shrink-0
-          "
-        />
+        <Icon className="size-4 text-muted-foreground shrink-0" />
       </div>
-
-      {/* Main value */}
 
       <div
         className="
           font-display
-          text-xl
+          text-2xl
           sm:text-3xl
           font-bold
           tracking-tight
@@ -100,18 +79,8 @@ function Stat({ icon: Icon, label, value, sub }) {
         {value}
       </div>
 
-      {/* Subtitle */}
-
       {sub && (
-        <div
-          className="
-            text-[10px]
-            sm:text-xs
-            text-muted-foreground
-            mt-1
-            truncate
-          "
-        >
+        <div className="text-[11px] sm:text-xs text-muted-foreground mt-1">
           {sub}
         </div>
       )}
@@ -120,235 +89,135 @@ function Stat({ icon: Icon, label, value, sub }) {
 }
 
 
-/* =========================================================
-   CHANGE DISPLAY
-   ========================================================= */
-
 function ChangeValue({ value }) {
-  const numericValue = Number(value) || 0;
+  const change = Number(value) || 0;
 
-  const positive = numericValue > 0;
-  const negative = numericValue < 0;
+  if (change > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-up">
+        <ArrowUpRight className="size-3" />
+        +{change.toFixed(2)}%
+      </span>
+    );
+  }
+
+  if (change < 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-down">
+        <ArrowDownRight className="size-3" />
+        {change.toFixed(2)}%
+      </span>
+    );
+  }
 
   return (
-    <span
-      className={`
-        inline-flex
-        items-center
-        gap-1
-        whitespace-nowrap
-        ${
-          positive
-            ? "text-up"
-            : negative
-            ? "text-down"
-            : "text-muted-foreground"
-        }
-      `}
-    >
-      {positive && (
-        <ArrowUpRight className="size-3 shrink-0" />
-      )}
-
-      {negative && (
-        <ArrowDownRight className="size-3 shrink-0" />
-      )}
-
-      {positive ? "+" : ""}
-      {numericValue.toFixed(2)}%
+    <span className="text-muted-foreground">
+      0.00%
     </span>
   );
 }
 
-
-/* =========================================================
-   DASHBOARD
-   ========================================================= */
 
 export default function Dashboard() {
   const {
     data: products,
     error,
     loading,
-  } = useApi(() => api.products(), []);
+  } = useApi(
+    () => api.products(),
+    []
+  );
 
-
-  /* =========================================================
-     LOADING
-     ========================================================= */
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div
-          className="
-            h-7
-            w-44
-            rounded-md
-            bg-accent
-            animate-pulse
-          "
-        />
+      <div className="space-y-6 animate-pulse">
 
-        <div
-          className="
-            h-4
-            w-72
-            max-w-full
-            rounded-md
-            bg-accent
-            animate-pulse
-          "
-        />
+        <div>
+          <div className="h-7 w-48 bg-secondary rounded" />
+          <div className="h-4 w-72 max-w-full bg-secondary rounded mt-2" />
+        </div>
 
-        <div
-          className="
-            grid
-            grid-cols-2
-            gap-3
-            mt-6
-          "
-        >
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((item) => (
             <div
               key={item}
               className="
                 h-28
-                rounded-md
-                bg-accent
-                animate-pulse
+                bg-card
+                border
+                border-border
+                rounded-lg
               "
             />
           ))}
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-72 bg-card border border-border rounded-lg" />
+          <div className="h-72 bg-card border border-border rounded-lg" />
+        </div>
+
       </div>
     );
   }
 
-
-  /* =========================================================
-     ERROR
-     ========================================================= */
 
   if (error) {
     return <ApiError error={error} />;
   }
 
 
-  /* =========================================================
-     DATA
-     ========================================================= */
-
-  const list = Array.isArray(products)
-    ? products
-    : [];
-
+  const list = products || [];
 
   const avgs = computeCategoryAverages(list);
 
   const movers = computeTopMovers(list);
 
-  const {
-    categories,
-    updatedToday,
-    avgChange,
-  } = computeDashboardStats(list);
+
+  const categories = [
+    ...new Set(
+      list
+        .map((p) => p.category)
+        .filter(Boolean)
+    ),
+  ];
 
 
-  /* =========================================================
-     EMPTY STATE
-     ========================================================= */
-
-  if (list.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1
-            className="
-              text-xl
-              sm:text-2xl
-              font-bold
-              tracking-tight
-              text-foreground
-            "
-          >
-            Market Overview
-          </h1>
-
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Indicative spot prices for primary polymer grades — India market.
-          </p>
-        </div>
-
-        <div
-          className="
-            bg-card
-            border
-            border-border
-            rounded-md
-            p-6
-            sm:p-10
-            text-center
-          "
-        >
-          <Boxes
-            className="
-              size-8
-              mx-auto
-              mb-3
-              text-muted-foreground
-            "
-          />
-
-          <h2 className="font-semibold">
-            No products available
-          </h2>
-
-          <p className="text-sm text-muted-foreground mt-1">
-            The backend did not return any products.
-          </p>
-
-          <Link
-            to="/products"
-            className="
-              inline-flex
-              items-center
-              justify-center
-              mt-5
-              px-4
-              py-2.5
-              rounded-md
-              bg-primary
-              text-primary-foreground
-              text-sm
-              font-medium
-              hover:opacity-90
-              transition-opacity
-            "
-          >
-            View Products
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const today = new Date()
+    .toISOString()
+    .slice(0, 10);
 
 
-  /* =========================================================
-     RENDER
-     ========================================================= */
+  const updatedToday = list.filter(
+    (p) =>
+      (p.lastUpdated || "").startsWith(today)
+  ).length;
+
+
+  const avgChange =
+    list.length > 0
+      ? list.reduce(
+          (total, product) =>
+            total + (Number(product.changePct) || 0),
+          0
+        ) / list.length
+      : 0;
+
 
   return (
-    <>
-      {/* =======================================================
-          MARKET OVERVIEW
-          ======================================================= */}
+    <div className="w-full min-w-0">
 
-      <section className="mb-6 sm:mb-8">
+      {/* =====================================================
+          PAGE HEADER
+      ====================================================== */}
+
+      <div className="mb-6 sm:mb-8">
+
         <h1
           className="
-            text-xl
-            sm:text-2xl
+            text-2xl
+            sm:text-3xl
             font-bold
             tracking-tight
             text-foreground
@@ -362,37 +231,40 @@ export default function Dashboard() {
             text-xs
             sm:text-sm
             text-muted-foreground
-            leading-relaxed
             mt-1
             max-w-2xl
           "
         >
-          Indicative spot prices for primary polymer grades — India market.
+          Indicative spot prices for primary polymer
+          grades — India market.
         </p>
-      </section>
+
+      </div>
 
 
-      {/* =======================================================
+      {/* =====================================================
           MARKET STATS
-          ======================================================= */}
+      ====================================================== */}
 
-      <section
+      <div
         className="
           grid
           grid-cols-2
-          md:grid-cols-4
+          lg:grid-cols-4
           gap-3
           sm:gap-4
           mb-6
           sm:mb-8
         "
       >
+
         <Stat
           icon={Boxes}
           label="TOTAL PRODUCTS"
           value={String(list.length)}
           sub="Active grades tracked"
         />
+
 
         <Stat
           icon={Layers}
@@ -401,56 +273,59 @@ export default function Dashboard() {
           sub="Resin categories"
         />
 
+
         <Stat
           icon={Clock}
           label="UPDATED TODAY"
           value={String(updatedToday)}
-          sub="In the last 24h"
+          sub="Latest market updates"
         />
+
 
         <Stat
           icon={Activity}
           label="MARKET TREND"
-          value={`${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`}
-          sub="Avg. 24h change"
+          value={`
+            ${avgChange >= 0 ? "+" : ""}
+            ${avgChange.toFixed(2)}%
+          `}
+          sub="Average price change"
         />
-      </section>
+
+      </div>
 
 
-      {/* =======================================================
+      {/* =====================================================
           CATEGORY AVERAGES + TOP MOVERS
-          ======================================================= */}
+      ====================================================== */}
 
-      <section
+      <div
         className="
           grid
           grid-cols-1
-          lg:grid-cols-3
-          gap-4
+          xl:grid-cols-3
+          gap-5
           sm:gap-6
           mb-6
           sm:mb-8
-          min-w-0
         "
       >
 
-        {/* =====================================================
+        {/* =================================================
             CATEGORY AVERAGES
-            ===================================================== */}
+        ================================================== */}
 
-        <div
+        <section
           className="
-            lg:col-span-2
+            xl:col-span-2
             bg-card
             border
             border-border
-            rounded-md
-            min-w-0
+            rounded-lg
             overflow-hidden
+            min-w-0
           "
         >
-
-          {/* Header */}
 
           <div
             className="
@@ -465,148 +340,135 @@ export default function Dashboard() {
               gap-3
             "
           >
-            <h2 className="text-sm font-semibold tracking-tight">
-              Category Averages
-            </h2>
+
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">
+                Category Averages
+              </h2>
+
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                Average current price by material
+              </p>
+            </div>
+
 
             <Link
               to="/products"
               className="
+                shrink-0
                 text-[10px]
                 sm:text-[11px]
                 font-display
                 text-primary
                 hover:underline
-                whitespace-nowrap
-                shrink-0
-                px-2
-                py-1
               "
             >
               VIEW ALL →
             </Link>
+
           </div>
 
 
-          {/* Category cards */}
+          {avgs.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No category data available.
+            </div>
+          ) : (
+            <div
+              className="
+                grid
+                grid-cols-2
+                sm:grid-cols-3
+                lg:grid-cols-4
+              "
+            >
 
-          <div
-            className="
-              grid
-              grid-cols-2
-              sm:grid-cols-3
-              md:grid-cols-4
-              divide-x
-              divide-y
-              divide-border
-            "
-          >
-            {avgs.map((c) => (
-              <Link
-                key={c.category}
-                to={`/products?category=${encodeURIComponent(
-                  c.category
-                )}`}
-                className="
-                  p-3
-                  sm:p-4
-                  min-w-0
-                  min-h-24
-                  hover:bg-accent/50
-                  active:bg-accent
-                  transition-colors
-                  group
-                  flex
-                  flex-col
-                  justify-center
-                "
-              >
-
-                {/* Category */}
-
-                <div
+              {avgs.map((c) => (
+                <Link
+                  key={c.category}
+                  to={`/products?category=${encodeURIComponent(
+                    c.category
+                  )}`}
                   className="
-                    text-[9px]
-                    sm:text-[10px]
-                    font-display
-                    tracking-widest
-                    text-muted-foreground
-                    truncate
+                    p-3
+                    sm:p-4
+                    border-b
+                    border-r
+                    border-border
+                    hover:bg-accent/50
+                    transition-colors
+                    min-w-0
                   "
                 >
-                  {c.category}
-                </div>
+
+                  <div
+                    className="
+                      text-[9px]
+                      sm:text-[10px]
+                      font-display
+                      tracking-widest
+                      text-muted-foreground
+                      truncate
+                    "
+                  >
+                    {c.category}
+                  </div>
 
 
-                {/* Average price */}
-
-                <div
-                  className="
-                    font-display
-                    text-base
-                    sm:text-xl
-                    font-bold
-                    mt-1
-                    truncate
-                  "
-                >
-                  ₹{Number(c.avg).toFixed(2)}
-                </div>
+                  <div
+                    className="
+                      font-display
+                      text-lg
+                      sm:text-xl
+                      font-bold
+                      mt-1
+                      truncate
+                    "
+                  >
+                    ₹{Number(c.avg || 0).toFixed(2)}
+                  </div>
 
 
-                {/* Change */}
+                  <div className="text-xs mt-1">
+                    <ChangeValue value={c.change} />
+                  </div>
 
-                <div
-                  className="
-                    text-[10px]
-                    sm:text-xs
-                    mt-1
-                  "
-                >
-                  <ChangeValue value={c.change} />
-                </div>
+                </Link>
+              ))}
 
-              </Link>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+
+        </section>
 
 
-        {/* =====================================================
+        {/* =================================================
             TOP MOVERS
-            ===================================================== */}
+        ================================================== */}
 
-        <div
+        <section
           className="
             bg-card
             border
             border-border
-            rounded-md
-            min-w-0
+            rounded-lg
             overflow-hidden
+            min-w-0
           "
         >
 
-          {/* Header */}
-
-          <div
-            className="
-              px-4
-              sm:px-5
-              py-4
-              border-b
-              border-border
-            "
-          >
-            <h2 className="text-sm font-semibold tracking-tight">
+          <div className="px-4 sm:px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">
               Top Movers
             </h2>
+
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+              Biggest price movements
+            </p>
           </div>
 
 
           <div className="p-2">
-
-            {/* Gainers */}
 
             <div
               className="
@@ -624,7 +486,11 @@ export default function Dashboard() {
             </div>
 
 
-            {movers.gainers.length > 0 ? (
+            {movers.gainers.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-muted-foreground">
+                No gainers available.
+              </div>
+            ) : (
               movers.gainers.map((p) => (
                 <Link
                   key={p.id}
@@ -638,60 +504,32 @@ export default function Dashboard() {
                     py-2.5
                     rounded
                     hover:bg-accent
-                    active:bg-accent
                     transition-colors
-                    text-xs
-                    sm:text-sm
                     min-w-0
                   "
                 >
 
-                  <span
-                    className="
-                      truncate
-                      min-w-0
-                    "
-                  >
-                    {p.name}
+                  <span className="min-w-0 truncate text-xs sm:text-sm">
+                    <span>{p.name}</span>
 
-                    <span
-                      className="
-                        text-muted-foreground
-                        font-mono
-                        text-[10px]
-                        sm:text-xs
-                        ml-1
-                      "
-                    >
-                      {p.grade}
-                    </span>
+                    {p.grade && (
+                      <span className="text-muted-foreground font-mono text-[10px] sm:text-xs ml-1">
+                        {p.grade}
+                      </span>
+                    )}
                   </span>
 
 
-                  <span
-                    className="
-                      text-up
-                      font-display
-                      text-[10px]
-                      sm:text-xs
-                      whitespace-nowrap
-                      shrink-0
-                    "
-                  >
-                    {p.changePct >= 0 ? "+" : ""}
-                    {Number(p.changePct).toFixed(2)}%
+                  <span className="text-up font-display text-xs shrink-0">
+                    +
+                    {Number(p.changePct || 0).toFixed(2)}
+                    %
                   </span>
 
                 </Link>
               ))
-            ) : (
-              <div className="px-3 py-3 text-xs text-muted-foreground">
-                No gainers available.
-              </div>
             )}
 
-
-            {/* Losers */}
 
             <div
               className="
@@ -709,7 +547,11 @@ export default function Dashboard() {
             </div>
 
 
-            {movers.losers.length > 0 ? (
+            {movers.losers.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-muted-foreground">
+                No losers available.
+              </div>
+            ) : (
               movers.losers.map((p) => (
                 <Link
                   key={p.id}
@@ -723,136 +565,104 @@ export default function Dashboard() {
                     py-2.5
                     rounded
                     hover:bg-accent
-                    active:bg-accent
                     transition-colors
-                    text-xs
-                    sm:text-sm
                     min-w-0
                   "
                 >
 
-                  <span
-                    className="
-                      truncate
-                      min-w-0
-                    "
-                  >
-                    {p.name}
+                  <span className="min-w-0 truncate text-xs sm:text-sm">
+                    <span>{p.name}</span>
 
-                    <span
-                      className="
-                        text-muted-foreground
-                        font-mono
-                        text-[10px]
-                        sm:text-xs
-                        ml-1
-                      "
-                    >
-                      {p.grade}
-                    </span>
+                    {p.grade && (
+                      <span className="text-muted-foreground font-mono text-[10px] sm:text-xs ml-1">
+                        {p.grade}
+                      </span>
+                    )}
                   </span>
 
 
-                  <span
-                    className="
-                      text-down
-                      font-display
-                      text-[10px]
-                      sm:text-xs
-                      whitespace-nowrap
-                      shrink-0
-                    "
-                  >
-                    {Number(p.changePct) >= 0 ? "+" : ""}
-                    {Number(p.changePct).toFixed(2)}%
+                  <span className="text-down font-display text-xs shrink-0">
+                    {Number(p.changePct || 0).toFixed(2)}
+                    %
                   </span>
 
                 </Link>
               ))
-            ) : (
-              <div className="px-3 py-3 text-xs text-muted-foreground">
-                No losers available.
-              </div>
             )}
 
           </div>
-        </div>
 
-      </section>
+        </section>
+
+      </div>
 
 
-      {/* =======================================================
+      {/* =====================================================
           BROWSE BY CATEGORY
-          ======================================================= */}
+      ====================================================== */}
 
       <section
         className="
           bg-card
           border
           border-border
-          rounded-md
+          rounded-lg
           overflow-hidden
         "
       >
 
-        {/* Header */}
+        <div className="px-4 sm:px-5 py-4 border-b border-border">
 
-        <div
-          className="
-            px-4
-            sm:px-5
-            py-4
-            border-b
-            border-border
-          "
-        >
-          <h2 className="text-sm font-semibold tracking-tight">
+          <h2 className="text-sm font-semibold">
             Browse by Category
           </h2>
+
+          <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+            Explore polymer grades by material
+          </p>
+
         </div>
 
 
-        {/* Categories */}
+        <div className="p-4 flex flex-wrap gap-2">
 
-        <div
-          className="
-            p-3
-            sm:p-4
-            flex
-            flex-wrap
-            gap-2
-          "
-        >
-          {categories.map((c) => (
-            <Link
-              key={c}
-              to={`/products?category=${encodeURIComponent(c)}`}
-              className="
-                px-3
-                sm:px-4
-                py-2.5
-                border
-                border-border
-                rounded-md
-                text-xs
-                sm:text-sm
-                font-display
-                hover:border-primary
-                hover:text-primary
-                active:bg-accent
-                transition-colors
-                whitespace-nowrap
-                min-h-10
-                flex
-                items-center
-              "
-            >
-              {c}
-            </Link>
-          ))}
+          {categories.length === 0 ? (
+            <span className="text-sm text-muted-foreground">
+              No categories available.
+            </span>
+          ) : (
+            categories.map((category) => (
+              <Link
+                key={category}
+                to={`/products?category=${encodeURIComponent(
+                  category
+                )}`}
+                className="
+                  px-3
+                  sm:px-4
+                  py-2
+                  border
+                  border-border
+                  rounded-md
+                  text-xs
+                  sm:text-sm
+                  font-display
+                  hover:border-primary
+                  hover:text-primary
+                  transition-colors
+                  active:scale-[0.98]
+                "
+              >
+                {category}
+              </Link>
+            ))
+          )}
+
         </div>
 
       </section>
-    </>
+
+    </div>
   );
 }
+```
