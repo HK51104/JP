@@ -210,7 +210,13 @@ export function normalizeHistory(rows)
 
 // ---------- Endpoint helpers ----------
 export const api = {
-  products: () => getJSON("/products").then((d) => (Array.isArray(d) ? d : []).map(normalizeProduct)),
+  products: () =>
+  getJSON("/products").then((d) => {
+    console.log("RAW BACKEND PRODUCTS:", d);
+
+    return (Array.isArray(d) ? d : []).map(normalizeProduct);
+  }),
+  // products: () => getJSON("/products").then((d) => (Array.isArray(d) ? d : []).map(normalizeProduct)),
   // So even though you never typed normalizeHistory(rows), .then() did it for you behind the scenes.("When the previous step finishes, automatically call someFunction and give it the previous result as its first argument.")
   // When api.products() is called, it fetches all products from the backend, makes sure the response is an array, cleans every product using normalizeProduct(), and returns the final cleaned array to the rest of your React application.
   // products:This is a property name inside the api object.
