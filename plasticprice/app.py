@@ -498,3 +498,108 @@ def sync_prices():
         "skipped": skipped,
         "total": len(data)
     }
+
+    # ----------------------------
+# SUPPLIER COMPARISON
+# ----------------------------
+
+@app.get("/products/{product_id}/comparison")
+def get_product_comparison(product_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # First find the selected product's grade
+    cursor.execute("""
+        SELECT
+            id,
+            product_name,
+            product_grade,
+            current_price,
+            change_pct,
+            last_updated
+        FROM products
+        WHERE id = %s
+    """, (product_id,))
+
+    selected = cursor.fetchone()
+
+    if not selected:
+        cursor.close()
+        conn.close()
+
+        return {
+            "product": None,
+            "suppliers": []
+        }
+
+    selected_id = selected[0]
+    selected_name = selected[1]
+    selected_grade = selected[2]
+
+    # Find products with the same grade.
+    #
+    # The idea is:
+    #
+    # PP IOCL      1060MG - 6 MFI
+    # PP Reliance  1060MG - 6 MFI
+    # PP HMEL      1060MG - 6 MFI
+    #
+    # These can then be compared.
+    cursor.execute("""
+        SELECT
+            id,
+            product_name,
+            product_grade,
+            current_price,
+            change_pct,
+            last_updated
+        FROM products
+        WHERE product_grade = %s
+        ORDER BY current_price ASC
+    """, (selected_grade,))
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    suppliers = []
+
+    for row in rows:
+        suppliers.append({
+            "id": row[0],
+            "supplier": row[1],
+            "grade": row[2],
+            "price": float(row[3]),
+            "changePct": float(row[4]) if row[4] is not None else 0,
+            "lastUpdated": row[5]
+        })
+
+    lowest_price = None
+
+    if suppliers:
+        lowest_price = min(
+            supplier["price"]
+            for supplier in suppliers
+        )
+
+    return {
+        "product": {
+            "id": selected_id,
+            "name": selected_name,
+            "grade": selected_grade,
+            "price": float(selected[3]),
+            "changePct": (
+                float(selected[4])
+                if selected[4] is not None
+                else 0
+            ),
+            "lastUpdated": selected[5]
+        },
+
+        "suppliers": suppliers,
+
+        "lowestPrice": lowest_price,
+
+        "supplierCount": len(suppliers)
+    }
