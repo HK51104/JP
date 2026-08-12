@@ -210,12 +210,75 @@ export function normalizeHistory(rows)
 
 // ---------- Endpoint helpers ----------
 export const api = {
- products: () =>
-  getJSON("/products").then((d) => {
-    console.log("RAW BACKEND PRODUCTS:", d);
+ products: async () => {
+  const rawProducts = await getJSON("/products");
 
-    return (Array.isArray(d) ? d : []).map(normalizeProduct);
-  }),
+  const products = Array.isArray(rawProducts) ? rawProducts : [];
+
+  const normalized = await Promise.all(
+    products.map(async (p) => {
+      const product = normalizeProduct(p);
+
+      try {
+        const history = await getJSON(`/products/${p.id}/history`);
+
+        if (!Array.isArray(history) || history.length === 0) {
+          return product;
+        }
+
+        const now = new Date(p.last_updated);
+
+        const targetTime = now.getTime() - 24 * 60 * 60 * 1000;
+
+        // Find the history record closest to 24 hours before the current price.
+        const previous = history.reduce((closest, record) => {
+          const recordTime = new Date(record.time).getTime();
+
+          if (recordTime > targetTime) {
+            return closest;
+          }
+
+          if (!closest) {
+            return record;
+          }
+
+          const closestDistance =
+            Math.abs(new Date(closest.time).getTime() - targetTime);
+
+          const currentDistance =
+            Math.abs(recordTime - targetTime);
+
+          return currentDistance < closestDistance
+            ? record
+            : closest;
+        }, null);
+
+        if (!previous || !previous.price) {
+          return product;
+        }
+
+        const changePct =
+          ((product.currentPrice - Number(previous.price)) /
+            Number(previous.price)) *
+          100;
+
+        return {
+          ...product,
+          changePct: Number(changePct.toFixed(2)),
+        };
+      } catch (error) {
+        console.error(
+          `Failed to fetch history for product ${p.id}:`,
+          error
+        );
+
+        return product;
+      }
+    })
+  );
+
+  return normalized;
+},
   // products: () => getJSON("/products").then((d) => (Array.isArray(d) ? d : []).map(normalizeProduct)),
   // So even though you never typed normalizeHistory(rows), .then() did it for you behind the scenes.("When the previous step finishes, automatically call someFunction and give it the previous result as its first argument.")
   // When api.products() is called, it fetches all products from the backend, makes sure the response is an array, cleans every product using normalizeProduct(), and returns the final cleaned array to the rest of your React application.
