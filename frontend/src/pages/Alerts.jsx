@@ -1,128 +1,151 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Bell,
+  BellRing,
   Trash2,
   Plus,
-  AlertTriangle,
-  CheckCircle2,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 
-import { api, formatPrice, formatChange } from "../api";
+import { api, useApi, formatPrice } from "../api";
 import ApiError from "../components/APIerror";
 
+const STORAGE_KEY = "jp_price_alerts";
+
+function loadAlerts() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    if (!saved) {
+      return [];
+    }
+
+    const parsed = JSON.parse(saved);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAlerts(alerts) {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(alerts)
+  );
+}
+
 export default function Alerts() {
-  const [alerts, setAlerts] = useState([]);
-  const [products, setProducts] = useState([]);
+  const {
+    data: products,
+    error,
+    loading,
+  } = useApi(() => api.products(), []);
+
+  const [alerts, setAlerts] = useState(loadAlerts);
 
   const [productId, setProductId] = useState("");
-  const [alertType, setAlertType] =
-    useState("price_above");
-  const [targetValue, setTargetValue] =
-    useState("");
 
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState(null);
+  const [condition, setCondition] = useState("above");
 
-  async function loadData() {
-    try {
-      setLoading(true);
-      setError(null);
+  const [targetPrice, setTargetPrice] = useState("");
 
-      const [alertsData, productsData] =
-        await Promise.all([
-          api.alerts(),
-          api.products(),
-        ]);
-
-      setAlerts(
-        Array.isArray(alertsData)
-          ? alertsData
-          : []
-      );
-
-      setProducts(
-        Array.isArray(productsData)
-          ? productsData
-          : []
-      );
-    } catch (err) {
-      setError(err);
-    } finally {
-      setLoading(false);
+  const selectedProduct = useMemo(() => {
+    if (!productId || !Array.isArray(products)) {
+      return null;
     }
-  }
 
-  useEffect(() => {
-    loadData();
-  }, []);
+    return products.find(
+      (product) =>
+        String(product.id) === String(productId)
+    );
+  }, [products, productId]);
 
-  async function handleCreate(e) {
-    e.preventDefault();
+  function createAlert(event) {
+    event.preventDefault();
 
-    if (!productId || targetValue === "") {
+    if (!selectedProduct) {
       return;
     }
 
-    try {
-      setCreating(true);
+    const price = Number(targetPrice);
 
-      await api.createAlert({
-        productId: Number(productId),
-        alertType,
-        targetValue: Number(targetValue),
-      });
-
-      setProductId("");
-      setTargetValue("");
-
-      await loadData();
-    } catch (err) {
-      setError(err);
-    } finally {
-      setCreating(false);
+    if (!Number.isFinite(price) || price <= 0) {
+      return;
     }
+
+    const newAlert = {
+      id: crypto.randomUUID(),
+
+      productId: selectedProduct.id,
+
+      productName: selectedProduct.name,
+
+      grade: selectedProduct.grade,
+
+      condition,
+
+      targetPrice: price,
+
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedAlerts = [
+      ...alerts,
+      newAlert,
+    ];
+
+    setAlerts(updatedAlerts);
+
+    saveAlerts(updatedAlerts);
+
+    setProductId("");
+
+    setTargetPrice("");
   }
 
-  async function handleDelete(id) {
-    try {
-      await api.deleteAlert(id);
+  function deleteAlert(id) {
+    const updatedAlerts = alerts.filter(
+      (alert) => alert.id !== id
+    );
 
-      setAlerts((current) =>
-        current.filter(
-          (alert) => alert.id !== id
-        )
-      );
-    } catch (err) {
-      setError(err);
-    }
+    setAlerts(updatedAlerts);
+
+    saveAlerts(updatedAlerts);
   }
 
-  function getAlertLabel(type) {
-    switch (type) {
-      case "price_above":
-        return "Price goes above";
-
-      case "price_below":
-        return "Price goes below";
-
-      case "change_above":
-        return "Change exceeds";
-
-      case "change_below":
-        return "Change falls below";
-
-      default:
-        return type;
+  function isTriggered(alert) {
+    if (!Array.isArray(products)) {
+      return false;
     }
+
+    const product = products.find(
+      (item) =>
+        String(item.id) ===
+        String(alert.productId)
+    );
+
+    if (!product) {
+      return false;
+    }
+
+    const currentPrice = Number(product.price);
+
+    if (alert.condition === "above") {
+      return currentPrice >= alert.targetPrice;
+    }
+
+    return currentPrice <= alert.targetPrice;
   }
 
   if (loading) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-accent animate-pulse rounded" />
-        <div className="h-40 bg-accent animate-pulse rounded-md" />
-        <div className="h-40 bg-accent animate-pulse rounded-md" />
+
+        <div className="h-32 bg-accent animate-pulse rounded-md" />
+
+        <div className="h-24 bg-accent animate-pulse rounded-md" />
       </div>
     );
   }
@@ -138,20 +161,21 @@ export default function Alerts() {
 
       <section>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-md">
-            <Bell className="size-5 text-primary" />
+
+          <div className="size-9 rounded-md bg-accent flex items-center justify-center">
+            <BellRing className="size-4 text-primary" />
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-bold tracking-tight">
               Price Alerts
             </h1>
 
             <p className="text-sm text-muted-foreground mt-1">
-              Monitor polymer prices and get notified
-              when your conditions are reached.
+              Get notified when a polymer reaches your target price.
             </p>
           </div>
+
         </div>
       </section>
 
@@ -161,46 +185,62 @@ export default function Alerts() {
       <section className="bg-card border border-border rounded-md">
 
         <div className="px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Plus className="size-4 text-primary" />
 
-            <h2 className="text-sm font-semibold">
-              Create Alert
-            </h2>
-          </div>
+          <h2 className="text-sm font-semibold">
+            Create Price Alert
+          </h2>
+
+          <p className="text-xs text-muted-foreground mt-1">
+            Set a price threshold for any tracked product.
+          </p>
+
         </div>
 
+
         <form
-          onSubmit={handleCreate}
-          className="p-5 space-y-5"
+          onSubmit={createAlert}
+          className="p-5 grid grid-cols-1 md:grid-cols-4 gap-4"
         >
 
           {/* PRODUCT */}
 
           <div>
-            <label className="block text-xs font-semibold mb-2">
-              Product
+            <label className="text-[10px] font-display tracking-widest text-muted-foreground">
+              PRODUCT
             </label>
 
             <select
               value={productId}
-              onChange={(e) =>
-                setProductId(e.target.value)
+              onChange={(event) =>
+                setProductId(event.target.value)
               }
-              className="w-full bg-background border border-border rounded-md px-3 py-2.5 text-sm"
+              className="
+                mt-2
+                w-full
+                h-10
+                rounded-md
+                border
+                border-border
+                bg-background
+                px-3
+                text-sm
+                outline-none
+                focus:ring-1
+                focus:ring-primary
+              "
             >
               <option value="">
                 Select product
               </option>
 
-              {products.map((product) => (
+              {(products || []).map((product) => (
                 <option
                   key={product.id}
                   value={product.id}
                 >
                   {product.name}
                   {product.grade
-                    ? ` · ${product.grade}`
+                    ? ` — ${product.grade}`
                     : ""}
                 </option>
               ))}
@@ -208,111 +248,141 @@ export default function Alerts() {
           </div>
 
 
-          {/* TYPE */}
+          {/* CONDITION */}
 
           <div>
-            <label className="block text-xs font-semibold mb-2">
-              Alert when
+            <label className="text-[10px] font-display tracking-widest text-muted-foreground">
+              CONDITION
             </label>
 
             <select
-              value={alertType}
-              onChange={(e) =>
-                setAlertType(e.target.value)
+              value={condition}
+              onChange={(event) =>
+                setCondition(event.target.value)
               }
-              className="w-full bg-background border border-border rounded-md px-3 py-2.5 text-sm"
+              className="
+                mt-2
+                w-full
+                h-10
+                rounded-md
+                border
+                border-border
+                bg-background
+                px-3
+                text-sm
+                outline-none
+                focus:ring-1
+                focus:ring-primary
+              "
             >
-              <option value="price_above">
+              <option value="above">
                 Price goes above
               </option>
 
-              <option value="price_below">
+              <option value="below">
                 Price goes below
-              </option>
-
-              <option value="change_above">
-                Change exceeds
-              </option>
-
-              <option value="change_below">
-                Change falls below
               </option>
             </select>
           </div>
 
 
-          {/* VALUE */}
+          {/* TARGET */}
 
           <div>
-            <label className="block text-xs font-semibold mb-2">
-              Target value
+            <label className="text-[10px] font-display tracking-widest text-muted-foreground">
+              TARGET PRICE
             </label>
 
-            <div className="relative">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={targetPrice}
+              onChange={(event) =>
+                setTargetPrice(event.target.value)
+              }
+              placeholder="₹0.00"
+              className="
+                mt-2
+                w-full
+                h-10
+                rounded-md
+                border
+                border-border
+                bg-background
+                px-3
+                text-sm
+                outline-none
+                focus:ring-1
+                focus:ring-primary
+              "
+            />
 
-              <input
-                type="number"
-                step="0.01"
-                value={targetValue}
-                onChange={(e) =>
-                  setTargetValue(e.target.value)
-                }
-                placeholder={
-                  alertType.startsWith("price")
-                    ? "150"
-                    : "5"
-                }
-                className="w-full bg-background border border-border rounded-md px-3 py-2.5 text-sm"
-              />
-
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                {alertType.startsWith("price")
-                  ? "₹/kg"
-                  : "%"}
-              </span>
-
-            </div>
+            {selectedProduct && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Current:{" "}
+                {formatPrice(selectedProduct.price)}
+              </div>
+            )}
           </div>
 
 
-          <button
-            type="submit"
-            disabled={
-              creating ||
-              !productId ||
-              targetValue === ""
-            }
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-md text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="size-4" />
+          {/* BUTTON */}
 
-            {creating
-              ? "Creating..."
-              : "Create Alert"}
-          </button>
+          <div className="flex items-end">
+
+            <button
+              type="submit"
+              disabled={
+                !selectedProduct ||
+                !targetPrice
+              }
+              className="
+                w-full
+                h-10
+                rounded-md
+                bg-primary
+                text-primary-foreground
+                text-sm
+                font-semibold
+                flex
+                items-center
+                justify-center
+                gap-2
+                disabled:opacity-40
+                disabled:cursor-not-allowed
+                hover:opacity-90
+                transition-opacity
+              "
+            >
+              <Plus className="size-4" />
+
+              Create Alert
+            </button>
+
+          </div>
 
         </form>
+
       </section>
 
 
-      {/* ALERT LIST */}
+      {/* ACTIVE ALERTS */}
 
       <section>
 
         <div className="flex items-center justify-between mb-4">
 
-          <div className="flex items-center gap-2">
-            <Bell className="size-4 text-primary" />
-
+          <div>
             <h2 className="text-sm font-semibold">
-              My Alerts
+              Your Alerts
             </h2>
-          </div>
 
-          <span className="text-xs text-muted-foreground">
-            {alerts.length} alert
-            {alerts.length !== 1 ? "s" : ""}
-          </span>
+            <p className="text-xs text-muted-foreground mt-1">
+              {alerts.length} active alert
+              {alerts.length === 1 ? "" : "s"}
+            </p>
+          </div>
 
         </div>
 
@@ -321,14 +391,14 @@ export default function Alerts() {
 
           <div className="bg-card border border-dashed border-border rounded-md p-10 text-center">
 
-            <Bell className="size-8 mx-auto text-muted-foreground mb-3" />
+            <BellRing className="size-8 mx-auto text-muted-foreground mb-3" />
 
             <div className="text-sm font-semibold">
-              No alerts yet
+              No price alerts
             </div>
 
             <div className="text-xs text-muted-foreground mt-1">
-              Create your first price alert above.
+              Create an alert above to start monitoring prices.
             </div>
 
           </div>
@@ -337,90 +407,140 @@ export default function Alerts() {
 
           <div className="space-y-3">
 
-            {alerts.map((alert) => (
+            {alerts.map((alert) => {
 
-              <div
-                key={alert.id}
-                className="bg-card border border-border rounded-md p-4"
-              >
+              const triggered =
+                isTriggered(alert);
 
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              const product =
+                (products || []).find(
+                  (item) =>
+                    String(item.id) ===
+                    String(alert.productId)
+                );
 
-                  <div className="flex items-start gap-3">
+              const currentPrice =
+                product
+                  ? Number(product.price)
+                  : null;
 
-                    <div className="mt-0.5">
+              return (
+                <div
+                  key={alert.id}
+                  className={`
+                    bg-card
+                    border
+                    rounded-md
+                    p-4
+                    ${
+                      triggered
+                        ? "border-primary"
+                        : "border-border"
+                    }
+                  `}
+                >
 
-                      {alert.triggered ? (
-                        <CheckCircle2 className="size-5 text-up" />
-                      ) : (
-                        <AlertTriangle className="size-5 text-primary" />
-                      )}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
-                    </div>
-
+                    {/* PRODUCT */}
 
                     <div>
 
-                      <div className="font-semibold text-sm">
+                      <div className="text-sm font-semibold">
                         {alert.productName}
                       </div>
 
-                      {alert.productGrade && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {alert.productGrade}
+                      {alert.grade && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {alert.grade}
                         </div>
                       )}
 
-                      <div className="text-xs text-muted-foreground mt-2">
-
-                        {getAlertLabel(
-                          alert.alertType
-                        )}
-
-                        {" "}
-
-                        <span className="font-semibold text-foreground">
-                          {alert.alertType.startsWith(
-                            "price"
-                          )
-                            ? formatPrice(
-                                alert.targetValue
-                              )
-                            : formatChange(
-                                alert.targetValue
-                              )}
-                        </span>
-
-                      </div>
-
                     </div>
 
-                  </div>
 
+                    {/* CONDITION */}
 
-                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
 
-                    <div className="text-right">
+                      {alert.condition === "above" ? (
+                        <ArrowUpRight className="size-4 text-up" />
+                      ) : (
+                        <ArrowDownRight className="size-4 text-down" />
+                      )}
 
-                      <div className="text-[10px] tracking-widest text-muted-foreground">
-                        CURRENT
+                      <div className="text-sm">
+                        {alert.condition === "above"
+                          ? "Above"
+                          : "Below"}
                       </div>
 
                       <div className="font-display font-bold">
                         {formatPrice(
-                          alert.currentPrice
+                          alert.targetPrice
                         )}
                       </div>
 
                     </div>
 
 
+                    {/* CURRENT */}
+
+                    <div className="text-sm">
+
+                      <span className="text-muted-foreground">
+                        Current:{" "}
+                      </span>
+
+                      <span className="font-semibold">
+                        {currentPrice != null
+                          ? formatPrice(
+                              currentPrice
+                            )
+                          : "Unavailable"}
+                      </span>
+
+                    </div>
+
+
+                    {/* STATUS */}
+
+                    <div>
+
+                      {triggered ? (
+                        <span className="text-xs font-semibold text-up">
+                          TARGET REACHED
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          MONITORING
+                        </span>
+                      )}
+
+                    </div>
+
+
+                    {/* DELETE */}
+
                     <button
+                      type="button"
                       onClick={() =>
-                        handleDelete(alert.id)
+                        deleteAlert(alert.id)
                       }
-                      className="p-2 text-muted-foreground hover:text-down transition-colors"
-                      title="Delete alert"
+                      className="
+                        size-9
+                        rounded-md
+                        border
+                        border-border
+                        flex
+                        items-center
+                        justify-center
+                        text-muted-foreground
+                        hover:text-down
+                        hover:bg-accent
+                        transition-colors
+                      "
+                      aria-label="Delete alert"
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -428,14 +548,34 @@ export default function Alerts() {
                   </div>
 
                 </div>
-
-              </div>
-
-            ))}
+              );
+            })}
 
           </div>
 
         )}
+
+      </section>
+
+
+      {/* EXPLANATION */}
+
+      <section className="border border-border rounded-md bg-card p-4">
+
+        <div className="text-[10px] font-display tracking-widest text-muted-foreground">
+          HOW ALERTS WORK
+        </div>
+
+        <div className="text-sm mt-2">
+          Alerts are currently stored in this browser.
+          They compare your target price with the latest
+          market price whenever the Alerts page loads.
+        </div>
+
+        <div className="text-xs text-muted-foreground mt-2">
+          Cloud notifications and cross-device alerts can
+          be added later through the backend.
+        </div>
 
       </section>
 
