@@ -1,605 +1,1464 @@
-# Conclusion
-# Developed a FastAPI backend that provides multiple REST API endpoints for products, categories, dashboard statistics, price history, and price synchronization.
-# Established a secure connection between the FastAPI application and the PostgreSQL database using the psycopg2 library, enabling efficient data retrieval and updates.
-# Configured CORS middleware to allow seamless communication between the React frontend and the FastAPI backend without browser security restrictions.
-# Implemented database queries to fetch product information, historical prices, categories, and dashboard summaries, while returning structured JSON responses for frontend consumption.
-# Integrated the CredCo API with the /sync-prices endpoint to automatically update product prices, maintain historical price records, and keep the database synchronized with the latest market data.
-
-
-
 import os
+from typing import Optional
 
 import requests
-# Used for calling another website's API. 
 import psycopg2
-# Lets Python connect to PostgreSQL.
-from fastapi import FastAPI
-# Imports the FastAPI framework.(this lets you create a webserver)
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-# Imports CORS support.
-
-# Without this:
-
-# React (localhost:8080)
-    #    │
-    #    ▼
-# FastAPI (localhost:8000)
-
-# ❌ Browser blocks request
 
 
-# With CORS:
+# ============================================================
+# APP
+# ============================================================
 
-# React
-#    │
-#    ▼
-# FastAPI
-
-# ✅ Allowed
-app = FastAPI()
-# Creates the FastAPI application.
-# Everything below belongs to this app.
-# app
-# │
-# ├── /
-# ├── /products
-# ├── /dashboard
-# ├── /categories
-# ├── /stats
-# └── /sync-prices
-
-# CORS = Cross-Origin Resource Sharing
-# Cross = Across
-# Origin = Website/App
-# Resource = Data/API/File
-# Sharing = Allowing access
-
-# A browser security mechanism that decides whether one website is allowed to access resources from another website. 
+app = FastAPI(
+    title="JP — Jagdish Polymers API",
+    version="1.0.0",
+)
 
 
-# middleware It sits in the middle of the request and response.
-# Middleware is software that runs before and/or after a request reaches a route handler, allowing you to perform common tasks such as CORS handling, authentication, logging, rate limiting, and modifying requests or responses without duplicating code in every endpoint.
+# ============================================================
+# CORS
+# ============================================================
+
+# Your production frontend
+PRODUCTION_ORIGIN = "https://jagdishpolymers.me"
+
+# Optional environment variable:
+# FRONTEND_URL=https://jagdishpolymers.me
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    PRODUCTION_ORIGIN,
+)
+
+allowed_origins = [
+    PRODUCTION_ORIGIN,
+]
+
+if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
+    allowed_origins.append(FRONTEND_URL)
+
+# Local development
+allowed_origins.extend(
+    [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:8080",
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Adds CORS middleware.
-# It tells FastAPI:
-# Allow these websites
-# ↓
-# http://localhost:8080
-# because your frontend runs there.
 
-# ----------------------------
-# DB CONNECTION
-# ----------------------------
+
+# ============================================================
+# DATABASE
+# ============================================================
+
 def get_connection():
+    """
+    Create a PostgreSQL connection.
+
+    DATABASE_URL must be configured in Render
+    environment variables.
+    """
+
+    database_url = os.getenv("DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not configured."
+        )
+
     return psycopg2.connect(
-        os.environ["DATABASE_URL"]
+        database_url
     )
 
-# ----------------------------
-# HOME
-# ----------------------------
-@app.get("/")
-# This is called a decorator.
-# It tells FastAPI:
-# "When someone visits /, run the function below."
 
-    # Function executed for /.
+# ============================================================
+# HELPERS
+# ============================================================
+
+def close_connection(conn, cursor=None):
+    """
+    Safely close cursor and database connection.
+    """
+
+    try:
+        if cursor:
+            cursor.close()
+    except Exception:
+        pass
+
+    try:
+        if conn:
+            conn.close()
+    except Exception:
+        pass
+
+
+def safe_float(value):
+    """
+    Convert database/API numeric values into JSON-safe floats.
+    """
+
+    if value is None:
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def calculate_percentage_change(
+    current: Optional[float],
+    previous: Optional[float],
+):
+    """
+    Calculate percentage change safely.
+    """
+
+    if current is None or previous is None:
+        return 0.0
+
+    if previous == 0:
+        return 0.0
+
+    return round(
+        ((current - previous) / previous) * 100,
+        2,
+    )
+
+
+# ============================================================
+# HOME
+# ============================================================
+
+@app.get("/")
 def home():
-    return {"message": "Plastic Price API Running"}
-    # FastAPI automatically converts this into JSON.
-# ----------------------------
+    return {
+        "message": "Plastic Price API Running",
+        "service": "JP — Jagdish Polymers",
+        "status": "online",
+    }
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+@app.get("/health")
+def health():
+    """
+    Check whether the API and PostgreSQL are reachable.
+    """
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+
+        return {
+            "status": "healthy",
+            "database": "connected",
+        }
+
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "error": str(e),
+        }
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
 # ALL PRODUCTS
-# ----------------------------
+# ============================================================
+
 @app.get("/products")
 def get_products():
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT
-            p.id,
-            p.product_name,
-            p.product_grade,
-            p.current_price,
-            p.last_updated,
-            c.category_name,
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.last_updated,
+                c.id AS category_id,
+                c.category_name,
+
+                (
+                    SELECT ph.price
+                    FROM price_history ph
+                    WHERE ph.product_id = p.id
+                    ORDER BY ph.recorded_at DESC
+                    OFFSET 1
+                    LIMIT 1
+                ) AS previous_price,
+
+                (
+                    SELECT ph.price
+                    FROM price_history ph
+                    WHERE ph.product_id = p.id
+                      AND ph.recorded_at <= NOW() - INTERVAL '24 hours'
+                    ORDER BY ph.recorded_at DESC
+                    LIMIT 1
+                ) AS price_24h_ago,
+
+                (
+                    SELECT ph.price
+                    FROM price_history ph
+                    WHERE ph.product_id = p.id
+                      AND ph.recorded_at <= NOW() - INTERVAL '7 days'
+                    ORDER BY ph.recorded_at DESC
+                    LIMIT 1
+                ) AS price_7d_ago
+
+            FROM products p
+
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+
+            ORDER BY p.id
+            """
+        )
+
+        rows = cursor.fetchall()
+
+        products = []
+
+        for row in rows:
 
             (
-                SELECT ph.price
-                FROM price_history ph
-                WHERE ph.product_id = p.id
-                ORDER BY ph.recorded_at DESC
-                OFFSET 1
-                LIMIT 1
-            ) AS previous_price,
+                product_id,
+                product_name,
+                product_grade,
+                current_price_raw,
+                last_updated,
+                category_id,
+                category_name,
+                previous_price_raw,
+                price_24h_raw,
+                price_7d_raw,
+            ) = row
 
-            (
-                SELECT ph.price
-                FROM price_history ph
-                WHERE ph.product_id = p.id
-                  AND ph.recorded_at <= NOW() - INTERVAL '24 hours'
-                ORDER BY ph.recorded_at DESC
-                LIMIT 1
-            ) AS price_24h_ago,
+            current_price = (
+                safe_float(current_price_raw)
+                or 0.0
+            )
 
-            (
-                SELECT ph.price
-                FROM price_history ph
-                WHERE ph.product_id = p.id
-                  AND ph.recorded_at <= NOW() - INTERVAL '7 days'
-                ORDER BY ph.recorded_at DESC
-                LIMIT 1
-            ) AS price_7d_ago
+            previous_price = safe_float(
+                previous_price_raw
+            )
 
-        FROM products p
+            price_24h_ago = safe_float(
+                price_24h_raw
+            )
 
-        LEFT JOIN categories c
-            ON p.category_id = c.id
+            price_7d_ago = safe_float(
+                price_7d_raw
+            )
 
-        ORDER BY p.id
-    """)
+            # ------------------------------------------------
+            # PREVIOUS RECORD CHANGE
+            # ------------------------------------------------
 
-    rows = cursor.fetchall()
+            if previous_price is not None:
 
-    cursor.close()
-    conn.close()
+                price_change = round(
+                    current_price - previous_price,
+                    2,
+                )
 
-    products = []
+                change_pct = calculate_percentage_change(
+                    current_price,
+                    previous_price,
+                )
 
-    for r in rows:
+            else:
 
-        current_price = float(r[3]) if r[3] is not None else 0
+                price_change = 0.0
+                change_pct = 0.0
+
+            # ------------------------------------------------
+            # 24H CHANGE
+            # ------------------------------------------------
+
+            change_24h = calculate_percentage_change(
+                current_price,
+                price_24h_ago,
+            )
+
+            # ------------------------------------------------
+            # 7D CHANGE
+            # ------------------------------------------------
+
+            change_7d = calculate_percentage_change(
+                current_price,
+                price_7d_ago,
+            )
+
+            products.append(
+                {
+                    "id": product_id,
+
+                    "product_name": product_name,
+
+                    "product_grade": (
+                        product_grade or ""
+                    ),
+
+                    "current_price": current_price,
+
+                    "previous_price": previous_price,
+
+                    "price_change": price_change,
+
+                    "change_pct": change_pct,
+
+                    "change_24h": change_24h,
+
+                    "change_7d": change_7d,
+
+                    "last_updated": last_updated,
+
+                    "category_id": category_id,
+
+                    "category": (
+                        category_name
+                        or "Uncategorized"
+                    ),
+                }
+            )
+
+        return products
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to fetch products: {str(e)}",
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
+# SINGLE PRODUCT
+# ============================================================
+
+@app.get("/products/{product_id}")
+def get_product(product_id: int):
+
+    conn = None
+    cursor = None
+
+    try:
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.last_updated,
+                c.id AS category_id,
+                c.category_name
+            FROM products p
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+            WHERE p.id = %s
+            """,
+            (product_id,),
+        )
+
+        row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(
+                status_code=404,
+                detail="Product not found.",
+            )
+
+        (
+            product_id,
+            product_name,
+            product_grade,
+            current_price,
+            last_updated,
+            category_id,
+            category_name,
+        ) = row
+
+        # ------------------------------------------------
+        # PREVIOUS PRICE
+        # ------------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT price
+            FROM price_history
+            WHERE product_id = %s
+            ORDER BY recorded_at DESC
+            OFFSET 1
+            LIMIT 1
+            """,
+            (product_id,),
+        )
+
+        previous_row = cursor.fetchone()
 
         previous_price = (
-            float(r[6])
-            if r[6] is not None
+            safe_float(previous_row[0])
+            if previous_row
             else None
         )
 
-        price_24h_ago = (
-            float(r[7])
-            if r[7] is not None
-            else None
+        current_price = (
+            safe_float(current_price)
+            or 0.0
         )
 
-        price_7d_ago = (
-            float(r[8])
-            if r[8] is not None
-            else None
-        )
-
-        # --------------------------------
-        # Previous price change
-        # --------------------------------
-
-        if previous_price is not None:
-            price_change = round(
+        price_change = (
+            round(
                 current_price - previous_price,
-                2
+                2,
             )
+            if previous_price is not None
+            else 0.0
+        )
 
-            change_pct = round(
-                ((current_price - previous_price) / previous_price) * 100,
-                2
-            ) if previous_price != 0 else 0
+        change_pct = calculate_percentage_change(
+            current_price,
+            previous_price,
+        )
 
-        else:
-            price_change = 0
-            change_pct = 0
+        # ------------------------------------------------
+        # 24H
+        # ------------------------------------------------
 
-        # --------------------------------
-        # 24 hour change
-        # --------------------------------
+        cursor.execute(
+            """
+            SELECT price
+            FROM price_history
+            WHERE product_id = %s
+              AND recorded_at <= NOW() - INTERVAL '24 hours'
+            ORDER BY recorded_at DESC
+            LIMIT 1
+            """,
+            (product_id,),
+        )
 
-        if price_24h_ago is not None and price_24h_ago != 0:
+        row_24h = cursor.fetchone()
 
-            change_24h = round(
-                ((current_price - price_24h_ago) / price_24h_ago) * 100,
-                2
-            )
+        price_24h = (
+            safe_float(row_24h[0])
+            if row_24h
+            else None
+        )
 
-        else:
-            change_24h = 0
+        change_24h = calculate_percentage_change(
+            current_price,
+            price_24h,
+        )
 
-        # --------------------------------
-        # 7 day change
-        # --------------------------------
+        # ------------------------------------------------
+        # 7D
+        # ------------------------------------------------
 
-        if price_7d_ago is not None and price_7d_ago != 0:
+        cursor.execute(
+            """
+            SELECT price
+            FROM price_history
+            WHERE product_id = %s
+              AND recorded_at <= NOW() - INTERVAL '7 days'
+            ORDER BY recorded_at DESC
+            LIMIT 1
+            """,
+            (product_id,),
+        )
 
-            change_7d = round(
-                ((current_price - price_7d_ago) / price_7d_ago) * 100,
-                2
-            )
+        row_7d = cursor.fetchone()
 
-        else:
-            change_7d = 0
+        price_7d = (
+            safe_float(row_7d[0])
+            if row_7d
+            else None
+        )
 
-        products.append({
-            "id": r[0],
-            "product_name": r[1],
-            "product_grade": r[2],
+        change_7d = calculate_percentage_change(
+            current_price,
+            price_7d,
+        )
+
+        return {
+            "id": product_id,
+
+            "product_name": product_name,
+
+            "product_grade": (
+                product_grade or ""
+            ),
+
             "current_price": current_price,
 
             "previous_price": previous_price,
+
             "price_change": price_change,
+
             "change_pct": change_pct,
 
             "change_24h": change_24h,
+
             "change_7d": change_7d,
 
-            "last_updated": r[4],
-            "category": r[5]
-        })
+            "last_updated": last_updated,
 
-    return products
-# ----------------------------
+            "category_id": category_id,
+
+            "category": (
+                category_name
+                or "Uncategorized"
+            ),
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to fetch product: {str(e)}",
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
 # PRICE HISTORY
-# ----------------------------
+# ============================================================
 
 @app.get("/products/{product_id}/history")
-# History endpoint
-def get_product_history(product_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
+def get_product_history(
+    product_id: int,
+):
 
-    cursor.execute("""
-        SELECT price, recorded_at
-        FROM price_history
-        WHERE product_id = %s
-        ORDER BY recorded_at ASC
-    """, (product_id,))
+    conn = None
+    cursor = None
 
-    rows = cursor.fetchall()
+    try:
 
-    cursor.close()
-    conn.close()
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    return [
-        {
-            "price": float(r[0]),
-            "time": r[1]
-        }
-        for r in rows
-    ]
+        # Verify product exists
+        cursor.execute(
+            """
+            SELECT id
+            FROM products
+            WHERE id = %s
+            """,
+            (product_id,),
+        )
 
-# ----------------------------
+        if not cursor.fetchone():
+
+            raise HTTPException(
+                status_code=404,
+                detail="Product not found.",
+            )
+
+        cursor.execute(
+            """
+            SELECT
+                price,
+                recorded_at
+            FROM price_history
+            WHERE product_id = %s
+            ORDER BY recorded_at ASC
+            """,
+            (product_id,),
+        )
+
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "price": (
+                    safe_float(row[0])
+                    or 0.0
+                ),
+                "time": row[1],
+            }
+            for row in rows
+        ]
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Unable to fetch price history: {str(e)}"
+            ),
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
 # STATS
-# ----------------------------
+# ============================================================
+
 @app.get("/stats")
-# Stats endpoint
 def get_stats():
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM products")
-    total_products = cursor.fetchone()[0]
+    conn = None
+    cursor = None
 
-    cursor.execute("SELECT COUNT(*) FROM categories")
-    categories = cursor.fetchone()[0]
+    try:
 
-    cursor.close()
-    conn.close()
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    return {
-        "total_products": total_products,
-        "categories": categories
-    }
+        # Total products
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM products
+            """
+        )
 
-# ----------------------------
-# TOP MOVERS (BASIC FOR NOW)
-# ----------------------------
-# ----------------------------
+        total_products = cursor.fetchone()[0]
+
+        # Categories
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM categories
+            """
+        )
+
+        categories = cursor.fetchone()[0]
+
+        # Products updated recently
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM products
+            WHERE last_updated >= NOW() - INTERVAL '24 hours'
+            """
+        )
+
+        products_updated_24h = cursor.fetchone()[0]
+
+        # Last product update
+        cursor.execute(
+            """
+            SELECT MAX(last_updated)
+            FROM products
+            """
+        )
+
+        last_updated = cursor.fetchone()[0]
+
+        # History records
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM price_history
+            """
+        )
+
+        history_records = cursor.fetchone()[0]
+
+        return {
+            "total_products": total_products,
+
+            "categories": categories,
+
+            "products_updated_24h": (
+                products_updated_24h
+            ),
+
+            "last_updated": last_updated,
+
+            "history_records": history_records,
+        }
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to fetch stats: {str(e)}",
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
 # TOP MOVERS
-# ----------------------------
+# ============================================================
 
 @app.get("/top-movers")
 def get_top_movers():
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT
-            id,
-            product_name,
-            product_grade,
-            current_price,
-            change_pct,
-            last_updated
-        FROM products
-        WHERE change_pct IS NOT NULL
-        ORDER BY change_pct DESC
-        LIMIT 5
-    """)
+    conn = None
+    cursor = None
 
-    gainers = cursor.fetchall()
+    try:
 
-    cursor.execute("""
-        SELECT
-            id,
-            product_name,
-            product_grade,
-            current_price,
-            change_pct,
-            last_updated
-        FROM products
-        WHERE change_pct IS NOT NULL
-        ORDER BY change_pct ASC
-        LIMIT 5
-    """)
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    losers = cursor.fetchall()
+        # ------------------------------------------------
+        # GAINERS
+        # ------------------------------------------------
 
-    cursor.close()
-    conn.close()
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.change_pct,
+                p.last_updated,
+                c.category_name
+            FROM products p
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+            WHERE p.change_pct > 0
+            ORDER BY p.change_pct DESC
+            LIMIT 5
+            """
+        )
 
-    return {
-        "gainers": [
-            {
-                "id": r[0],
-                "name": r[1],
-                "grade": r[2],
-                "price": float(r[3]),
-                "changePct": float(r[4]),
-                "lastUpdated": r[5]
+        gainers = cursor.fetchall()
+
+        # ------------------------------------------------
+        # LOSERS
+        # ------------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.change_pct,
+                p.last_updated,
+                c.category_name
+            FROM products p
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+            WHERE p.change_pct < 0
+            ORDER BY p.change_pct ASC
+            LIMIT 5
+            """
+        )
+
+        losers = cursor.fetchall()
+
+        def serialize(row):
+
+            return {
+                "id": row[0],
+
+                "name": row[1],
+
+                "grade": (
+                    row[2] or ""
+                ),
+
+                "price": (
+                    safe_float(row[3])
+                    or 0.0
+                ),
+
+                "changePct": (
+                    safe_float(row[4])
+                    or 0.0
+                ),
+
+                "lastUpdated": row[5],
+
+                "category": (
+                    row[6]
+                    or "Uncategorized"
+                ),
             }
-            for r in gainers
-        ],
 
-        "losers": [
+        return {
+            "gainers": [
+                serialize(row)
+                for row in gainers
+            ],
+
+            "losers": [
+                serialize(row)
+                for row in losers
+            ],
+        }
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to fetch top movers: {str(e)}",
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
+# CATEGORIES
+# ============================================================
+
+@app.get("/categories")
+def get_categories():
+
+    conn = None
+    cursor = None
+
+    try:
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                category_name
+            FROM categories
+            ORDER BY category_name ASC
+            """
+        )
+
+        rows = cursor.fetchall()
+
+        return [
             {
-                "id": r[0],
-                "name": r[1],
-                "grade": r[2],
-                "price": float(r[3]),
-                "changePct": float(r[4]),
-                "lastUpdated": r[5]
+                "id": row[0],
+                "name": row[1],
             }
-            for r in losers
+            for row in rows
         ]
-    }
-# ----------------------------
-# SYNC PRICES
-# ----------------------------
 
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to fetch categories: {str(e)}",
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
+# SUPPLIER COMPARISON
+# ============================================================
+
+@app.get("/products/{product_id}/comparison")
+def get_product_comparison(
+    product_id: int,
+):
+
+    conn = None
+    cursor = None
+
+    try:
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # ------------------------------------------------
+        # SELECTED PRODUCT
+        # ------------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.change_pct,
+                p.last_updated,
+                p.category_id,
+                c.category_name
+            FROM products p
+            LEFT JOIN categories c
+                ON p.category_id = c.id
+            WHERE p.id = %s
+            """,
+            (product_id,),
+        )
+
+        selected = cursor.fetchone()
+
+        if not selected:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Product not found.",
+            )
+
+        (
+            selected_id,
+            selected_name,
+            selected_grade,
+            selected_price,
+            selected_change_pct,
+            selected_last_updated,
+            selected_category_id,
+            selected_category_name,
+        ) = selected
+
+        # ------------------------------------------------
+        # FIND COMPARABLE PRODUCTS
+        #
+        # Same category + same grade.
+        # ------------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                p.change_pct,
+                p.last_updated
+            FROM products p
+            WHERE p.category_id = %s
+              AND p.product_grade = %s
+            ORDER BY p.current_price ASC
+            """,
+            (
+                selected_category_id,
+                selected_grade,
+            ),
+        )
+
+        rows = cursor.fetchall()
+
+        suppliers = []
+
+        for row in rows:
+
+            suppliers.append(
+                {
+                    "id": row[0],
+
+                    "supplier": row[1],
+
+                    "grade": (
+                        row[2] or ""
+                    ),
+
+                    "price": (
+                        safe_float(row[3])
+                        or 0.0
+                    ),
+
+                    "changePct": (
+                        safe_float(row[4])
+                        or 0.0
+                    ),
+
+                    "lastUpdated": row[5],
+                }
+            )
+
+        lowest_price = (
+            min(
+                supplier["price"]
+                for supplier in suppliers
+            )
+            if suppliers
+            else None
+        )
+
+        return {
+            "product": {
+                "id": selected_id,
+
+                "name": selected_name,
+
+                "grade": (
+                    selected_grade or ""
+                ),
+
+                "price": (
+                    safe_float(selected_price)
+                    or 0.0
+                ),
+
+                "changePct": (
+                    safe_float(
+                        selected_change_pct
+                    )
+                    or 0.0
+                ),
+
+                "lastUpdated": selected_last_updated,
+
+                "category": (
+                    selected_category_name
+                    or "Uncategorized"
+                ),
+            },
+
+            "suppliers": suppliers,
+
+            "lowestPrice": lowest_price,
+
+            "supplierCount": len(
+                suppliers
+            ),
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Unable to compare suppliers: "
+                f"{str(e)}"
+            ),
+        )
+
+    finally:
+        close_connection(
+            conn,
+            cursor,
+        )
+
+
+# ============================================================
+# SYNC PRICES FROM CREDCO
+# ============================================================
 
 @app.post("/sync-prices")
 def sync_prices():
 
-    print("SYNC STARTED", flush=True)
+    print(
+        "====================================",
+        flush=True,
+    )
 
-    url = "https://api.credcosourcing.com/api/products/bycategory?category_id=62&state_id=DL&city_id=1&interval=2&public_pricing=1"
+    print(
+        "SYNC STARTED",
+        flush=True,
+    )
 
-    print("Calling CredCo...", flush=True)
+    print(
+        "====================================",
+        flush=True,
+    )
 
-    response = requests.get(url, timeout=20)
-    print("CredCo status:", response.status_code, flush=True)
+    credco_url = (
+        "https://api.credcosourcing.com/api/products/bycategory"
+        "?category_id=62"
+        "&state_id=DL"
+        "&city_id=1"
+        "&interval=2"
+        "&public_pricing=1"
+    )
 
-    response.raise_for_status()
-
-    data = response.json()
-
-    print("CredCo products:", len(data), flush=True)
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    print("Database connected", flush=True)
+    conn = None
+    cursor = None
 
     updated = 0
+    unchanged = 0
     skipped = 0
+    failed = 0
 
     try:
 
-        for p in data:
+        # ------------------------------------------------
+        # CALL CREDCO
+        # ------------------------------------------------
 
-            api_id = p.get("id")
-            current_price = p.get("current_price")
+        print(
+            "Calling CredCo...",
+            flush=True,
+        )
 
-            # Skip products where CredCo has no price
-            if current_price is None:
-                print(
-                    "Skipping product with no price:",
-                    api_id,
-                    flush=True
+        response = requests.get(
+            credco_url,
+            timeout=30,
+            headers={
+                "User-Agent": (
+                    "JP-JagdishPolymers/1.0"
                 )
-                skipped += 1
+            },
+        )
+
+        print(
+            "CredCo status:",
+            response.status_code,
+            flush=True,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        if not isinstance(data, list):
+
+            raise RuntimeError(
+                "CredCo returned an unexpected response format."
+            )
+
+        print(
+            "CredCo products:",
+            len(data),
+            flush=True,
+        )
+
+        # ------------------------------------------------
+        # DATABASE
+        # ------------------------------------------------
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        print(
+            "Database connected",
+            flush=True,
+        )
+
+        # ------------------------------------------------
+        # PROCESS PRODUCTS
+        # ------------------------------------------------
+
+        for product in data:
+
+            try:
+
+                api_id = product.get("id")
+
+                current_price_raw = (
+                    product.get("current_price")
+                )
+
+                # ----------------------------------------
+                # INVALID PRODUCT
+                # ----------------------------------------
+
+                if api_id is None:
+
+                    skipped += 1
+
+                    continue
+
+                if current_price_raw is None:
+
+                    skipped += 1
+
+                    print(
+                        "Skipping product with no price:",
+                        api_id,
+                        flush=True,
+                    )
+
+                    continue
+
+                price = float(
+                    current_price_raw
+                )
+
+                if price < 0:
+
+                    skipped += 1
+
+                    continue
+
+                # ----------------------------------------
+                # FIND PRODUCT
+                # ----------------------------------------
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id,
+                        current_price
+                    FROM products
+                    WHERE api_id = %s
+                    """,
+                    (api_id,),
+                )
+
+                row = cursor.fetchone()
+
+                if not row:
+
+                    skipped += 1
+
+                    print(
+                        "Product not found:",
+                        api_id,
+                        flush=True,
+                    )
+
+                    continue
+
+                db_id = row[0]
+
+                old_price = (
+                    safe_float(row[1])
+                )
+
+                # ----------------------------------------
+                # NO PRICE CHANGE
+                # ----------------------------------------
+
+                if (
+                    old_price is not None
+                    and abs(old_price - price) < 0.000001
+                ):
+
+                    # Still refresh last_updated
+                    cursor.execute(
+                        """
+                        UPDATE products
+                        SET last_updated = NOW()
+                        WHERE id = %s
+                        """,
+                        (db_id,),
+                    )
+
+                    unchanged += 1
+
+                    continue
+
+                # ----------------------------------------
+                # CALCULATE CHANGE
+                # ----------------------------------------
+
+                if old_price is not None:
+
+                    price_change = round(
+                        price - old_price,
+                        2,
+                    )
+
+                    change_pct = calculate_percentage_change(
+                        price,
+                        old_price,
+                    )
+
+                else:
+
+                    price_change = 0.0
+
+                    change_pct = 0.0
+
+                # ----------------------------------------
+                # UPDATE PRODUCT
+                # ----------------------------------------
+
+                cursor.execute(
+                    """
+                    UPDATE products
+                    SET
+                        current_price = %s,
+                        change_pct = %s,
+                        last_updated = NOW()
+                    WHERE id = %s
+                    """,
+                    (
+                        price,
+                        change_pct,
+                        db_id,
+                    ),
+                )
+
+                # ----------------------------------------
+                # HISTORY
+                # ----------------------------------------
+
+                cursor.execute(
+                    """
+                    INSERT INTO price_history
+                    (
+                        product_id,
+                        price
+                    )
+                    VALUES (%s, %s)
+                    """,
+                    (
+                        db_id,
+                        price,
+                    ),
+                )
+
+                updated += 1
+
+            except Exception as product_error:
+
+                failed += 1
+
+                print(
+                    "PRODUCT SYNC ERROR:",
+                    product_error,
+                    flush=True,
+                )
+
+                # Continue processing remaining products
                 continue
 
-            price = float(current_price)
-
-            cursor.execute(
-                """
-                SELECT id
-                FROM products
-                WHERE api_id = %s
-                """,
-                (api_id,)
-            )
-
-            row = cursor.fetchone()
-
-            # Product does not exist in our database
-            if not row:
-                print(
-                    "Product not found:",
-                    api_id,
-                    flush=True
-                )
-                skipped += 1
-                continue
-
-            db_id = row[0]
-
-            # Update current price
-            cursor.execute(
-                """
-                UPDATE products
-                SET current_price = %s,
-                    last_updated = NOW()
-                WHERE id = %s
-                """,
-                (price, db_id)
-            )
-
-            # Save price history
-            cursor.execute(
-                """
-                INSERT INTO price_history
-                (
-                    product_id,
-                    price
-                )
-                VALUES (%s, %s)
-                """,
-                (db_id, price)
-            )
-
-            updated += 1
+        # ------------------------------------------------
+        # COMMIT
+        # ------------------------------------------------
 
         conn.commit()
 
+        print(
+            "SYNC FINISHED",
+            flush=True,
+        )
+
+        print(
+            "Updated:",
+            updated,
+            flush=True,
+        )
+
+        print(
+            "Unchanged:",
+            unchanged,
+            flush=True,
+        )
+
+        print(
+            "Skipped:",
+            skipped,
+            flush=True,
+        )
+
+        print(
+            "Failed:",
+            failed,
+            flush=True,
+        )
+
+        return {
+            "message": "Sync completed",
+
+            "updated": updated,
+
+            "unchanged": unchanged,
+
+            "skipped": skipped,
+
+            "failed": failed,
+
+            "total": len(data),
+        }
+
+    except requests.RequestException as e:
+
+        if conn:
+            conn.rollback()
+
+        print(
+            "CREDCO REQUEST ERROR:",
+            e,
+            flush=True,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to reach CredCo price service."
+            ),
+        )
+
     except Exception as e:
 
-        conn.rollback()
+        if conn:
+            conn.rollback()
 
         print(
             "SYNC ERROR:",
             e,
-            flush=True
+            flush=True,
         )
 
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Price synchronization failed: {str(e)}",
+        )
 
     finally:
 
-        cursor.close()
-        conn.close()
-
-    print(
-        "SYNC FINISHED:",
-        updated,
-        "updated,",
-        skipped,
-        "skipped",
-        flush=True
-    )
-
-    return {
-        "message": "Sync completed",
-        "updated": updated,
-        "skipped": skipped,
-        "total": len(data)
-    }
-
-    # ----------------------------
-# SUPPLIER COMPARISON
-# ----------------------------
-
-@app.get("/products/{product_id}/comparison")
-def get_product_comparison(product_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # First find the selected product's grade
-    cursor.execute("""
-        SELECT
-            id,
-            product_name,
-            product_grade,
-            current_price,
-            change_pct,
-            last_updated
-        FROM products
-        WHERE id = %s
-    """, (product_id,))
-
-    selected = cursor.fetchone()
-
-    if not selected:
-        cursor.close()
-        conn.close()
-
-        return {
-            "product": None,
-            "suppliers": []
-        }
-
-    selected_id = selected[0]
-    selected_name = selected[1]
-    selected_grade = selected[2]
-
-    # Find products with the same grade.
-    #
-    # The idea is:
-    #
-    # PP IOCL      1060MG - 6 MFI
-    # PP Reliance  1060MG - 6 MFI
-    # PP HMEL      1060MG - 6 MFI
-    #
-    # These can then be compared.
-    cursor.execute("""
-        SELECT
-            id,
-            product_name,
-            product_grade,
-            current_price,
-            change_pct,
-            last_updated
-        FROM products
-        WHERE product_grade = %s
-        ORDER BY current_price ASC
-    """, (selected_grade,))
-
-    rows = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    suppliers = []
-
-    for row in rows:
-        suppliers.append({
-            "id": row[0],
-            "supplier": row[1],
-            "grade": row[2],
-            "price": float(row[3]),
-            "changePct": float(row[4]) if row[4] is not None else 0,
-            "lastUpdated": row[5]
-        })
-
-    lowest_price = None
-
-    if suppliers:
-        lowest_price = min(
-            supplier["price"]
-            for supplier in suppliers
+        close_connection(
+            conn,
+            cursor,
         )
-
-    return {
-        "product": {
-            "id": selected_id,
-            "name": selected_name,
-            "grade": selected_grade,
-            "price": float(selected[3]),
-            "changePct": (
-                float(selected[4])
-                if selected[4] is not None
-                else 0
-            ),
-            "lastUpdated": selected[5]
-        },
-
-        "suppliers": suppliers,
-
-        "lowestPrice": lowest_price,
-
-        "supplierCount": len(suppliers)
-    }
