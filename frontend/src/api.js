@@ -172,30 +172,30 @@ export const api = {
       .then((data) =>
         Array.isArray(data)
           ? data.map((item) => ({
-              price:
-                Number(item.price) || 0,
+            price:
+              Number(item.price) || 0,
 
-              time:
-                item.time ??
-                item.recorded_at ??
-                null,
-            }))
+            time:
+              item.time ??
+              item.recorded_at ??
+              null,
+          }))
           : []
       ),
 
-/*
-SUPPLIER COMPARISON
-*/
+  /*
+  SUPPLIER COMPARISON
+  */
 
-comparison: (id) =>
-  getJSON(`/products/${id}/comparison`)
-    .then((data) => ({
-      product: data?.product
-        ? normalizeProduct(data.product)
-        : null,
+  comparison: (id) =>
+    getJSON(`/products/${id}/comparison`)
+      .then((data) => ({
+        product: data?.product
+          ? normalizeProduct(data.product)
+          : null,
 
-      suppliers: Array.isArray(data?.suppliers)
-        ? data.suppliers.map((supplier) => ({
+        suppliers: Array.isArray(data?.suppliers)
+          ? data.suppliers.map((supplier) => ({
             id: supplier.id,
 
             supplier:
@@ -222,17 +222,17 @@ comparison: (id) =>
               supplier.last_updated ??
               null,
           }))
-        : [],
+          : [],
 
-      lowestPrice:
-        data?.lowestPrice != null
-          ? Number(data.lowestPrice)
-          : null,
+        lowestPrice:
+          data?.lowestPrice != null
+            ? Number(data.lowestPrice)
+            : null,
 
-      supplierCount:
-        Number(data?.supplierCount) ||
-        0,
-    })),
+        supplierCount:
+          Number(data?.supplierCount) ||
+          0,
+      })),
   /*
   STATS
   */
@@ -244,9 +244,13 @@ comparison: (id) =>
   /*
   TOP MOVERS
   */
+  topMovers: () =>
+    getJSON("/products").then((data) => {
+      const products = (Array.isArray(data) ? data : [])
+        .map(normalizeProduct);
 
- topMovers: () =>
-  getJSON("/top-movers"),
+      return computeTopMovers(products);
+    }),
 
 
   /*
