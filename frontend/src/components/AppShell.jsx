@@ -160,7 +160,7 @@ export default function AppShell({ children }) {
           <Activity className="size-3 animate-pulse" />
 
           <span className="hidden sm:inline">
-            POLYMETRIC LIVE
+            JP — JAGDISH POLYMERS
           </span>
 
           <span className="sm:hidden">
@@ -294,9 +294,9 @@ export default function AppShell({ children }) {
               shrink-0
             "
           >
-            POLY
+             JP-
             <span className="text-primary">
-              METRIC
+              JAGDISHPOLYMERS
             </span>
           </Link>
 
