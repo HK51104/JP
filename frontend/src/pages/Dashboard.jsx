@@ -35,57 +35,41 @@ import {
 import ApiError from "../components/APIerror";
 
 
-function Stat({ icon: Icon, label, value, sub }) {
-  return (
-    <div
-      className="
-        bg-card
-        border
-        border-border
-        rounded-lg
-        p-4
-        sm:p-5
-        min-w-0
-      "
-    >
+function Stat({ icon: Icon, label, value, sub, to }) {
+  const content = (
+    <div className="bg-card border border-border rounded-md p-5 h-full transition-colors hover:bg-accent/40">
       <div className="flex items-center justify-between mb-3">
-        <span
-          className="
-            text-[9px]
-            sm:text-[10px]
-            font-display
-            tracking-widest
-            text-muted-foreground
-            truncate
-            pr-2
-          "
-        >
+        <span className="text-[10px] font-display tracking-widest text-muted-foreground">
           {label}
         </span>
 
-        <Icon className="size-4 text-muted-foreground shrink-0" />
+        <Icon className="size-4 text-muted-foreground" />
       </div>
 
-      <div
-        className="
-          font-display
-          text-2xl
-          sm:text-3xl
-          font-bold
-          tracking-tight
-          truncate
-        "
-      >
+      <div className="font-display text-3xl font-bold tracking-tight">
         {value}
       </div>
 
       {sub && (
-        <div className="text-[11px] sm:text-xs text-muted-foreground mt-1">
+        <div className="text-xs text-muted-foreground mt-1">
           {sub}
         </div>
       )}
     </div>
   );
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="block h-full"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
 }
 
 
@@ -119,44 +103,44 @@ function ChangeValue({ value }) {
 
 
 export default function Dashboard() {
- const {
-  data: products,
-  error: productsError,
-  loading: productsLoading,
-} = useApi(() => api.products(), []);
+  const {
+    data: products,
+    error: productsError,
+    loading: productsLoading,
+  } = useApi(() => api.products(), []);
 
-const {
-  data: moverData,
-  error: moversError,
-  loading: moversLoading,
-} = useApi(() => api.topMovers(), []);
+  const {
+    data: moverData,
+    error: moversError,
+    loading: moversLoading,
+  } = useApi(() => api.topMovers(), []);
 
 
   if (productsLoading || moversLoading) {
-  return (
-    <div className="text-sm text-muted-foreground">
-      Loading market overview…
-    </div>
-  );
-}
+    return (
+      <div className="text-sm text-muted-foreground">
+        Loading market overview…
+      </div>
+    );
+  }
 
   if (productsError) {
-  return <ApiError error={productsError} />;
-}
+    return <ApiError error={productsError} />;
+  }
 
-if (moversError) {
-  return <ApiError error={moversError} />;
-}
+  if (moversError) {
+    return <ApiError error={moversError} />;
+  }
 
 
   const list = products || [];
 
   const avgs = computeCategoryAverages(list);
 
- const movers = moverData || {
-  gainers: [],
-  losers: [],
-};
+  const movers = moverData || {
+    gainers: [],
+    losers: [],
+  };
 
   const categories = [
     ...new Set(
@@ -181,10 +165,10 @@ if (moversError) {
   const avgChange =
     list.length > 0
       ? list.reduce(
-          (total, product) =>
-            total + (Number(product.changePct) || 0),
-          0
-        ) / list.length
+        (total, product) =>
+          total + (Number(product.changePct) || 0),
+        0
+      ) / list.length
       : 0;
 
 
@@ -246,8 +230,8 @@ if (moversError) {
           label="TOTAL PRODUCTS"
           value={String(list.length)}
           sub="Active grades tracked"
+          to="/products"
         />
-
 
         <Stat
           icon={Layers}
