@@ -1184,7 +1184,113 @@ def sync_prices():
         # ------------------------------------------------
         # DATABASE
         # ------------------------------------------------
+# --------------------------------------------------
+# CHECK PRICE ALERTS
+# --------------------------------------------------
 
+cursor.execute(
+    """
+    SELECT
+        id,
+        alert_type,
+        target_value
+    FROM alerts
+    WHERE product_id = %s
+      AND is_active = TRUE
+      AND triggered = FALSE
+    """,
+    (db_id,),
+)
+
+alerts = cursor.fetchall()
+
+for alert in alerts:
+
+    alert_id = alert[0]
+    alert_type = alert[1]
+    target_value = float(alert[2])
+
+    triggered = False
+
+    if alert_type == "price_above":
+        triggered = price >= target_value
+
+    elif alert_type == "price_below":
+        triggered = price <= target_value
+
+    elif alert_type == "change_above":
+        cursor.execute(
+            """
+            SELECT price
+            FROM price_history
+            WHERE product_id = %s
+            ORDER BY recorded_at DESC
+            OFFSET 1
+            LIMIT 1
+            """,
+            (db_id,),
+        )
+
+        previous = cursor.fetchone()
+
+        if previous and previous[0] != 0:
+            previous_price = float(previous[0])
+
+            change_pct = (
+                (price - previous_price)
+                / previous_price
+            ) * 100
+
+            triggered = (
+                change_pct >= target_value
+            )
+
+    elif alert_type == "change_below":
+        cursor.execute(
+            """
+            SELECT price
+            FROM price_history
+            WHERE product_id = %s
+            ORDER BY recorded_at DESC
+            OFFSET 1
+            LIMIT 1
+            """,
+            (db_id,),
+        )
+
+        previous = cursor.fetchone()
+
+        if previous and previous[0] != 0:
+            previous_price = float(previous[0])
+
+            change_pct = (
+                (price - previous_price)
+                / previous_price
+            ) * 100
+
+            triggered = (
+                change_pct <= target_value
+            )
+
+    if triggered:
+
+        cursor.execute(
+            """
+            UPDATE alerts
+            SET
+                triggered = TRUE,
+                is_active = FALSE,
+                triggered_at = NOW()
+            WHERE id = %s
+            """,
+            (alert_id,),
+        )
+
+        print(
+            f"ALERT TRIGGERED: alert={alert_id} "
+            f"product={db_id} price={price}",
+            flush=True,
+        )
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -1462,3 +1568,175 @@ def sync_prices():
             conn,
             cursor,
         )
+
+        # --------------------------------------------------
+# PRICE ALERTS
+# --------------------------------------------------
+
+@app.get("/alerts")
+def get_alerts():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                a.id,
+                a.product_id,
+                p.product_name,
+                p.product_grade,
+                p.current_price,
+                a.alert_type,
+                a.target_value,
+                a.is_active,
+                a.triggered,
+                a.created_at,
+                a.triggered_at
+            FROM alerts a
+            JOIN products p
+                ON a.product_id = p.id
+            ORDER BY a.created_at DESC
+        """)
+
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "productId": row[1],
+                "productName": row[2],
+                "productGrade": row[3],
+                "currentPrice": float(row[4]) if row[4] is not None else 0,
+                "alertType": row[5],
+                "targetValue": float(row[6]),
+                "isActive": row[7],
+                "triggered": row[8],
+                "createdAt": row[9],
+                "triggeredAt": row[10],
+            }
+            for row in rows
+        ]
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.post("/alerts")
+def create_alert(alert: dict):
+    product_id = alert.get("productId")
+    alert_type = alert.get("alertType")
+    target_value = alert.get("targetValue")
+
+    if product_id is None:
+        return {"detail": "productId is required"}
+
+    if alert_type not in [
+        "price_above",
+        "price_below",
+        "change_above",
+        "change_below",
+    ]:
+        return {
+            "detail": "Invalid alert type"
+        }
+
+    try:
+        target_value = float(target_value)
+    except (TypeError, ValueError):
+        return {
+            "detail": "targetValue must be a number"
+        }
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM products
+            WHERE id = %s
+            """,
+            (product_id,),
+        )
+
+        product = cursor.fetchone()
+
+        if not product:
+            return {
+                "detail": "Product not found"
+            }
+
+        cursor.execute(
+            """
+            INSERT INTO alerts
+            (
+                product_id,
+                alert_type,
+                target_value
+            )
+            VALUES (%s, %s, %s)
+            RETURNING id
+            """,
+            (
+                product_id,
+                alert_type,
+                target_value,
+            ),
+        )
+
+        alert_id = cursor.fetchone()[0]
+
+        conn.commit()
+
+        return {
+            "message": "Alert created",
+            "id": alert_id,
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.delete("/alerts/{alert_id}")
+def delete_alert(alert_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            DELETE FROM alerts
+            WHERE id = %s
+            RETURNING id
+            """,
+            (alert_id,),
+        )
+
+        deleted = cursor.fetchone()
+
+        if not deleted:
+            return {
+                "detail": "Alert not found"
+            }
+
+        conn.commit()
+
+        return {
+            "message": "Alert deleted",
+            "id": deleted[0],
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conn.close()

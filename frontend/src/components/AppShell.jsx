@@ -25,7 +25,6 @@ Mobile behavior:
 - The mobile menu opens below the header.
 - Clicking a navigation item closes the menu.
 */
-
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -558,3 +557,4 @@ export default function AppShell({ children }) {
     </div>
   );
 }
+

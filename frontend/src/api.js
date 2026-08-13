@@ -153,6 +153,48 @@ export const api = {
         .map(normalizeProduct);
     }),
 
+      /*
+  ALERTS
+  */
+
+  alerts: () =>
+    getJSON("/alerts"),
+
+  createAlert: (alert) =>
+    fetch(`${API_BASE}/alerts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(alert),
+    }).then(async (response) => {
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+          "Failed to create alert"
+        );
+      }
+
+      return data;
+    }),
+
+  deleteAlert: (id) =>
+    fetch(`${API_BASE}/alerts/${id}`, {
+      method: "DELETE",
+    }).then(async (response) => {
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+          "Failed to delete alert"
+        );
+      }
+
+      return data;
+    }),
 
   /*
   SINGLE PRODUCT
