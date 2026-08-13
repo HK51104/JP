@@ -21,24 +21,22 @@ app = FastAPI(
 # CORS
 # ============================================================
 
-# Your production frontend
-PRODUCTION_ORIGIN = "https://jagdishpolymers.me"
+# ============================================================
+# CORS
+# ============================================================
 
-# Optional environment variable:
-# FRONTEND_URL=https://jagdishpolymers.me
-FRONTEND_URL = os.getenv(
-    "FRONTEND_URL",
-    PRODUCTION_ORIGIN,
-)
-
-allowed_origins = [
-    PRODUCTION_ORIGIN,
+PRODUCTION_ORIGINS = [
+    "https://jagdishpolymers.me",
+    "https://www.jagdishpolymers.me",
 ]
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+allowed_origins = PRODUCTION_ORIGINS.copy()
 
 if FRONTEND_URL and FRONTEND_URL not in allowed_origins:
     allowed_origins.append(FRONTEND_URL)
 
-# Local development
 allowed_origins.extend(
     [
         "http://localhost:5173",
@@ -49,17 +47,11 @@ allowed_origins.extend(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://www.jagdishpolymers.me",
-        "https://jagdishpolymers.me",
-        "http://localhost:5173",
-        "http://localhost:8080",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ============================================================
 # DATABASE
