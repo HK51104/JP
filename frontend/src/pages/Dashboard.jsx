@@ -225,13 +225,14 @@ export default function Dashboard() {
         "
       >
 
-        <Stat
-          icon={Boxes}
-          label="TOTAL PRODUCTS"
-          value={String(list.length)}
-          sub="Active grades tracked"
-          to="/products"
-        />
+        <Link to="/products" className="block h-full">
+          <Stat
+            icon={Boxes}
+            label="TOTAL PRODUCTS"
+            value={String(list.length)}
+            sub="Active grades tracked"
+          />
+        </Link>
 
         <Stat
           icon={Layers}
