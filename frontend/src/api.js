@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 
 export const API_BASE =
@@ -17,7 +18,7 @@ async function getJSON(path) {
         message = errorData.detail;
       }
     } catch {
-      // Keep the default error message.
+      // Keep default error message.
     }
 
     throw new Error(message);
@@ -27,41 +28,9 @@ async function getJSON(path) {
 }
 
 /*
---------------------------------------------------
+==================================================
 PRODUCT NORMALIZATION
---------------------------------------------------
-
-Backend:
-
-{
-  id,
-  product_name,
-  product_grade,
-  current_price,
-  previous_price,
-  price_change,
-  change_pct,
-  change_24h,
-  change_7d,
-  last_updated,
-  category
-}
-
-Frontend:
-
-{
-  id,
-  name,
-  grade,
-  price,
-  previousPrice,
-  priceChange,
-  changePct,
-  change24h,
-  change7d,
-  lastUpdated,
-  category
-}
+==================================================
 */
 
 export function normalizeProduct(p = {}) {
@@ -89,7 +58,7 @@ export function normalizeProduct(p = {}) {
   const change24h =
     p.change_24h != null
       ? Number(p.change_24h)
-      : Number(p.changePct ?? 0);
+      : 0;
 
   const change7d =
     p.change_7d != null
@@ -128,19 +97,23 @@ export function normalizeProduct(p = {}) {
 
     category:
       p.category ??
+      p.category_name ??
       "Uncategorized",
+
+    categoryId:
+      p.category_id ??
+      p.categoryId ??
+      null,
   };
 }
 
-
 /*
---------------------------------------------------
+==================================================
 API
---------------------------------------------------
+==================================================
 */
 
 export const api = {
-
   /*
   PRODUCTS
   */
@@ -153,7 +126,7 @@ export const api = {
         .map(normalizeProduct);
     }),
 
-      /*
+  /*
   ALERTS
   */
 
@@ -204,7 +177,6 @@ export const api = {
     getJSON(`/products/${id}`)
       .then(normalizeProduct),
 
-
   /*
   PRICE HISTORY
   */
@@ -214,14 +186,13 @@ export const api = {
       .then((data) =>
         Array.isArray(data)
           ? data.map((item) => ({
-            price:
-              Number(item.price) || 0,
+              price: Number(item.price) || 0,
 
-            time:
-              item.time ??
-              item.recorded_at ??
-              null,
-          }))
+              time:
+                item.time ??
+                item.recorded_at ??
+                null,
+            }))
           : []
       ),
 
@@ -236,35 +207,36 @@ export const api = {
           ? normalizeProduct(data.product)
           : null,
 
-        suppliers: Array.isArray(data?.suppliers)
-          ? data.suppliers.map((supplier) => ({
-            id: supplier.id,
+        suppliers:
+          Array.isArray(data?.suppliers)
+            ? data.suppliers.map((supplier) => ({
+                id: supplier.id,
 
-            supplier:
-              supplier.supplier ??
-              supplier.name ??
-              "Unknown Supplier",
+                supplier:
+                  supplier.supplier ??
+                  supplier.name ??
+                  "Unknown Supplier",
 
-            grade:
-              supplier.grade ??
-              "",
+                grade:
+                  supplier.grade ??
+                  "",
 
-            price:
-              Number(supplier.price) || 0,
+                price:
+                  Number(supplier.price) || 0,
 
-            changePct:
-              Number(
-                supplier.changePct ??
-                supplier.change_pct ??
-                0
-              ),
+                changePct:
+                  Number(
+                    supplier.changePct ??
+                    supplier.change_pct ??
+                    0
+                  ),
 
-            lastUpdated:
-              supplier.lastUpdated ??
-              supplier.last_updated ??
-              null,
-          }))
-          : [],
+                lastUpdated:
+                  supplier.lastUpdated ??
+                  supplier.last_updated ??
+                  null,
+              }))
+            : [],
 
         lowestPrice:
           data?.lowestPrice != null
@@ -272,9 +244,9 @@ export const api = {
             : null,
 
         supplierCount:
-          Number(data?.supplierCount) ||
-          0,
+          Number(data?.supplierCount) || 0,
       })),
+
   /*
   STATS
   */
@@ -282,37 +254,35 @@ export const api = {
   stats: () =>
     getJSON("/stats"),
 
-
   /*
   TOP MOVERS
   */
+
   topMovers: () =>
     getJSON("/products").then((data) => {
-      const products = (Array.isArray(data) ? data : [])
-        .map(normalizeProduct);
+      const products =
+        (Array.isArray(data) ? data : [])
+          .map(normalizeProduct);
 
       return computeTopMovers(products);
     }),
-
 
   /*
   CATEGORIES
   */
 
   categories: () =>
-    getJSON("/categories")
-      .then((data) =>
-        Array.isArray(data)
-          ? data
-          : []
-      ),
+    getJSON("/categories").then((data) =>
+      Array.isArray(data)
+        ? data
+        : []
+    ),
 };
 
-
 /*
---------------------------------------------------
+==================================================
 REUSABLE API HOOK
---------------------------------------------------
+==================================================
 */
 
 export function useApi(fn, deps = []) {
@@ -356,19 +326,10 @@ export function useApi(fn, deps = []) {
   };
 }
 
-
 /*
---------------------------------------------------
+==================================================
 CATEGORY AVERAGES
---------------------------------------------------
-
-Calculates:
-
-PP average price
-HDPE average price
-LDPE average price
-PVC average price
-etc.
+==================================================
 */
 
 export function computeCategoryAverages(products = []) {
@@ -388,7 +349,6 @@ export function computeCategoryAverages(products = []) {
 
   return Object.entries(groups)
     .map(([category, items]) => {
-
       const avg =
         items.reduce(
           (sum, product) =>
@@ -406,7 +366,9 @@ export function computeCategoryAverages(products = []) {
       return {
         category,
 
-        avg: Number(avg.toFixed(2)),
+        avg: Number(
+          avg.toFixed(2)
+        ),
 
         change: Number(
           change.toFixed(2)
@@ -420,24 +382,17 @@ export function computeCategoryAverages(products = []) {
     );
 }
 
-
 /*
---------------------------------------------------
+==================================================
 TOP MOVERS
---------------------------------------------------
-
-Frontend fallback calculation.
-
-This is temporary until we upgrade
-the backend /top-movers endpoint properly.
+==================================================
 */
 
 export function computeTopMovers(products = []) {
-  const sorted = [...products]
-    .sort(
-      (a, b) =>
-        b.changePct - a.changePct
-    );
+  const sorted = [...products].sort(
+    (a, b) =>
+      b.changePct - a.changePct
+  );
 
   return {
     gainers: sorted
@@ -460,11 +415,10 @@ export function computeTopMovers(products = []) {
   };
 }
 
-
 /*
---------------------------------------------------
+==================================================
 FORMATTERS
---------------------------------------------------
+==================================================
 */
 
 export function formatPrice(value) {
@@ -477,7 +431,6 @@ export function formatPrice(value) {
   return `₹${number.toFixed(2)}`;
 }
 
-
 export function formatChange(value) {
   const number = Number(value);
 
@@ -485,9 +438,10 @@ export function formatChange(value) {
     return "0.00%";
   }
 
-  return `${number >= 0 ? "+" : ""}${number.toFixed(2)}%`;
+  return `${
+    number >= 0 ? "+" : ""
+  }${number.toFixed(2)}%`;
 }
-
 
 export function formatRupeeChange(value) {
   const number = Number(value);
@@ -496,14 +450,15 @@ export function formatRupeeChange(value) {
     return "₹0.00";
   }
 
-  return `${number >= 0 ? "+" : "-"}₹${Math.abs(number).toFixed(2)}`;
+  return `${
+    number >= 0 ? "+" : "-"
+  }₹${Math.abs(number).toFixed(2)}`;
 }
 
-
 /*
---------------------------------------------------
+==================================================
 DIRECTION HELPERS
---------------------------------------------------
+==================================================
 */
 
 export function getChangeDirection(value) {
@@ -520,7 +475,6 @@ export function getChangeDirection(value) {
   return "flat";
 }
 
-
 export function getChangeColorClass(value) {
   const direction =
     getChangeDirection(value);
@@ -536,11 +490,10 @@ export function getChangeColorClass(value) {
   return "text-muted-foreground";
 }
 
-
 /*
---------------------------------------------------
+==================================================
 DATE / TIME
---------------------------------------------------
+==================================================
 */
 
 export function formatLastUpdated(value) {
@@ -566,11 +519,10 @@ export function formatLastUpdated(value) {
   );
 }
 
-
 /*
---------------------------------------------------
+==================================================
 DATA FRESHNESS
---------------------------------------------------
+==================================================
 */
 
 export function getRelativeTime(value) {
@@ -586,16 +538,14 @@ export function getRelativeTime(value) {
 
   const now = Date.now();
 
-  const diff =
-    Math.max(
-      0,
-      now - date.getTime()
-    );
+  const diff = Math.max(
+    0,
+    now - date.getTime()
+  );
 
-  const minutes =
-    Math.floor(
-      diff / (1000 * 60)
-    );
+  const minutes = Math.floor(
+    diff / (1000 * 60)
+  );
 
   if (minutes < 1) {
     return "Just now";
@@ -605,19 +555,17 @@ export function getRelativeTime(value) {
     return `${minutes}m ago`;
   }
 
-  const hours =
-    Math.floor(
-      minutes / 60
-    );
+  const hours = Math.floor(
+    minutes / 60
+  );
 
   if (hours < 24) {
     return `${hours}h ago`;
   }
 
-  const days =
-    Math.floor(
-      hours / 24
-    );
+  const days = Math.floor(
+    hours / 24
+  );
 
   return `${days}d ago`;
 }
