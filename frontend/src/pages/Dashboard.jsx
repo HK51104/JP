@@ -150,7 +150,7 @@ export default function Dashboard() {
   ];
 
 
-  const isUpdatedToday = (value) => {
+  const isRecentlyUpdated = (value) => {
     if (!value) {
       return false;
     }
@@ -161,17 +161,14 @@ export default function Dashboard() {
       return false;
     }
 
-    const now = new Date();
+    const now = Date.now();
+    const diffMs = now - date.getTime();
 
-    return (
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate()
-    );
+    return diffMs >= 0 && diffMs <= 24 * 60 * 60 * 1000;
   };
 
   const updatedToday = list.filter(
-    (product) => isUpdatedToday(product.lastUpdated)
+    (product) => isRecentlyUpdated(product.lastUpdated)
   ).length;
 
 
