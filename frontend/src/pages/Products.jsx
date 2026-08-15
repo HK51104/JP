@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 
-import { api, useApi, formatPrice, formatChange } from "../api";
+import { api, useApi, formatPrice } from "../api";
 import ApiError from "../components/APIerror";
 
 
