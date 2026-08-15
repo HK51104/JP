@@ -29,7 +29,6 @@ import {
   api,
   useApi,
   computeCategoryAverages,
-  computeTopMovers,
 } from "../api";
 
 import ApiError from "../components/APIerror";
@@ -151,14 +150,28 @@ export default function Dashboard() {
   ];
 
 
-  const today = new Date()
-    .toISOString()
-    .slice(0, 10);
+  const isUpdatedToday = (value) => {
+    if (!value) {
+      return false;
+    }
 
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return false;
+    }
+
+    const now = new Date();
+
+    return (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+    );
+  };
 
   const updatedToday = list.filter(
-    (p) =>
-      (p.lastUpdated || "").startsWith(today)
+    (product) => isUpdatedToday(product.lastUpdated)
   ).length;
 
 

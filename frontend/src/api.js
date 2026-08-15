@@ -317,7 +317,8 @@ export function useApi(fn, deps = []) {
     return () => {
       cancelled = true;
     };
-  }, deps);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fn, ...deps]);
 
   return {
     data,

@@ -45,7 +45,11 @@ export default [
       ...react.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       // Load recommended Hook rules.
-      
+
+      "react/react-in-jsx-scope": "off",
+      "react/jsx-uses-react": "off",
+      "react/prop-types": "off",
+      "react/no-unescaped-entities": "off",
       "react-refresh/only-export-components": "off",
       // Turn this rule OFF. // Normally it warns if a file exports things besides React components.
 
