@@ -5,8 +5,30 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE ||
   "https://jp-pfin.onrender.com";
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(
+        "The API is taking too long to respond. Please try again later."
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function getJSON(path) {
-  const response = await fetch(`${API_BASE}${path}`);
+  const response = await fetchWithTimeout(`${API_BASE}${path}`);
 
   if (!response.ok) {
     let message = `API request failed: ${response.status}`;
@@ -134,7 +156,7 @@ export const api = {
     getJSON("/alerts"),
 
   createAlert: (alert) =>
-    fetch(`${API_BASE}/alerts`, {
+    fetchWithTimeout(`${API_BASE}/alerts`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -154,7 +176,7 @@ export const api = {
     }),
 
   deleteAlert: (id) =>
-    fetch(`${API_BASE}/alerts/${id}`, {
+    fetchWithTimeout(`${API_BASE}/alerts/${id}`, {
       method: "DELETE",
     }).then(async (response) => {
       const data = await response.json();
