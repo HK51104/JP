@@ -730,6 +730,10 @@ def get_top_movers():
         losers = cursor.fetchall()
 
         def serialize(row):
+            last_updated = row[5]
+
+            if hasattr(last_updated, "isoformat"):
+                last_updated = last_updated.isoformat()
 
             return {
                 "id": row[0],
@@ -737,7 +741,7 @@ def get_top_movers():
                 "grade": (row[2] or ""),
                 "price": (safe_float(row[3]) or 0.0),
                 "changePct": (safe_float(row[4]) or 0.0),
-                "lastUpdated": row[5],
+                "lastUpdated": last_updated,
                 "category": (row[6] or "Uncategorized"),
             }
 
@@ -746,12 +750,13 @@ def get_top_movers():
             "losers": [serialize(row) for row in losers],
         }
 
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unable to fetch top movers: {str(e)}",
-        )
+    except Exception:
+        # Return empty data instead of crashing the dashboard when the backend
+        # is temporarily unavailable or a single row is malformed.
+        return {
+            "gainers": [],
+            "losers": [],
+        }
 
     finally:
         close_connection(
