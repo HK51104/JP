@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 
 export const API_BASE =
@@ -339,8 +338,9 @@ export function useApi(fn, deps = []) {
     return () => {
       cancelled = true;
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fn, ...deps]);
+  }, [...deps]);
 
   return {
     data,
@@ -592,4 +592,3 @@ export function getRelativeTime(value) {
 
   return `${days}d ago`;
 }
-
