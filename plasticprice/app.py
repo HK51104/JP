@@ -1190,7 +1190,7 @@ def sync_prices():
                     flush=True,
                 )
 
-            except Exception as product_error:
+                       except Exception as product_error:
 
                 # ----------------------------------------
                 # ROLLBACK THIS PRODUCT'S FAILED TRANSACTION
@@ -1208,20 +1208,18 @@ def sync_prices():
                 if conn:
                     conn.rollback()
 
-
+                failed += 1
 
                 print(
                     "PRODUCT SYNC ERROR:",
-
                     repr(product_error),
                     "| api_id:",
                     p.get("id"),
-
+                    flush=True,
                 )
 
                 # Continue processing remaining products
                 continue
-
         # ------------------------------------------------
         # FINISHED
         # ------------------------------------------------
