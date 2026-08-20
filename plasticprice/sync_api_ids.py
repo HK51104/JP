@@ -13,6 +13,7 @@ def get_connection():
     database="neondb",
     user="neondb_owner",
     password="***REMOVED***",
+
     sslmode="require"
 )
 

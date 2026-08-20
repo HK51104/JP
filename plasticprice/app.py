@@ -1172,6 +1172,7 @@ def sync_prices():
                     ),
                 )
 
+
                 # ----------------------------------------
                 # COMMIT THIS PRODUCT
                 # ----------------------------------------
@@ -1207,14 +1208,15 @@ def sync_prices():
                 if conn:
                     conn.rollback()
 
-                failed += 1
+
 
                 print(
                     "PRODUCT SYNC ERROR:",
+
                     repr(product_error),
                     "| api_id:",
                     p.get("id"),
-                    flush=True,
+
                 )
 
                 # Continue processing remaining products
@@ -1225,7 +1227,10 @@ def sync_prices():
         # ------------------------------------------------
         # No final conn.commit() needed here anymore since each
         # successful product is committed individually above.
-
+        # ------------------------------------------------
+        
+        # FINISHED
+        # ------------------------------------------------
         print("====================================", flush=True)
 
         print(
@@ -1311,6 +1316,7 @@ def sync_prices():
             "Database connection closed",
             flush=True,
         )
+
 # --------------------------------------------------
 # PRICE ALERTS
 # --------------------------------------------------
