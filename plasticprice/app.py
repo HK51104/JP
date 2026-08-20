@@ -1190,7 +1190,7 @@ def sync_prices():
                     flush=True,
                 )
 
-                except Exception as product_error:
+            except Exception as product_error:
 
                 # ----------------------------------------
                 # ROLLBACK THIS PRODUCT'S FAILED TRANSACTION
