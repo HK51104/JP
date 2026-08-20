@@ -1172,6 +1172,14 @@ def sync_prices():
                     ),
                 )
 
+                # ----------------------------------------
+                # COMMIT THIS PRODUCT
+                # ----------------------------------------
+                # Commit per-product so one bad product can't
+                # poison/roll back updates already made to others.
+
+                conn.commit()
+
                 updated += 1
 
                 print(
@@ -1183,11 +1191,29 @@ def sync_prices():
 
             except Exception as product_error:
 
+                # ----------------------------------------
+                # ROLLBACK THIS PRODUCT'S FAILED TRANSACTION
+                # ----------------------------------------
+                # CRITICAL: Without this, Postgres marks the
+                # connection's transaction as aborted and every
+                # subsequent cursor.execute() call -- even for
+                # totally unrelated, valid products -- will fail
+                # with "current transaction is aborted, commands
+                # ignored until end of transaction block".
+                # This is what was causing 43/52 products to show
+                # as "failed" even though only one product actually
+                # had a real error.
+
+                if conn:
+                    conn.rollback()
+
                 failed += 1
 
                 print(
                     "PRODUCT SYNC ERROR:",
-                    product_error,
+                    repr(product_error),
+                    "| api_id:",
+                    p.get("id"),
                     flush=True,
                 )
 
@@ -1195,16 +1221,10 @@ def sync_prices():
                 continue
 
         # ------------------------------------------------
-        # COMMIT
-        # ------------------------------------------------
-
-        conn.commit()
-
-        print("Database commit successful", flush=True)
-
-        # ------------------------------------------------
         # FINISHED
         # ------------------------------------------------
+        # No final conn.commit() needed here anymore since each
+        # successful product is committed individually above.
 
         print("====================================", flush=True)
 
@@ -1291,8 +1311,6 @@ def sync_prices():
             "Database connection closed",
             flush=True,
         )
-
-
 # --------------------------------------------------
 # PRICE ALERTS
 # --------------------------------------------------
