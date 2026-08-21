@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Optional
 
@@ -1479,3 +1480,184 @@ def delete_alert(alert_id: int):
     finally:
         cursor.close()
         conn.close()
+
+    # ============================================================
+# ADD THIS TO plasticprice/app.py
+# ============================================================
+# New imports needed at the top of app.py (add if not already there):
+#
+#   import os
+#   import json
+#   import requests
+#
+# ============================================================
+
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+
+@app.get("/market-summary")
+def market_summary():
+
+    print("====================================", flush=True)
+    print("MARKET SUMMARY REQUEST", flush=True)
+    print("====================================", flush=True)
+
+    conn = None
+    cursor = None
+
+    try:
+        # ------------------------------------------------
+        # STEP 1: GET REAL PRICE DATA FROM YOUR DATABASE
+        # ------------------------------------------------
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                product_name,
+                product_grade,
+                current_price,
+                change_pct
+            FROM products
+            WHERE change_pct IS NOT NULL
+            AND change_pct != 0
+            ORDER BY ABS(change_pct) DESC
+            LIMIT 15
+        """)
+
+        rows = cursor.fetchall()
+
+        if not rows:
+            return {
+                "summary": "No significant price movements to report today.",
+                "top_movers": [],
+            }
+
+        # ------------------------------------------------
+        # STEP 2: FORMAT DATA FOR THE PROMPT
+        # ------------------------------------------------
+
+        price_lines = []
+        for name, grade, price, change_pct in rows:
+            direction = "up" if change_pct > 0 else "down"
+            price_lines.append(
+                f"{name} ({grade}): {direction} {abs(change_pct)}%, now ₹{price}"
+            )
+
+        price_data_text = "\n".join(price_lines)
+
+        # ------------------------------------------------
+        # STEP 3: BUILD THE PROMPT
+        # ------------------------------------------------
+        # We explicitly ask for JSON output, and are STRICT
+        # about format, since LLMs often wrap JSON in markdown
+        # fences or add extra commentary.
+
+        prompt = f"""You are summarizing today's polymer (plastic resin) price movements for a trading dashboard.
+
+Here is today's price data (product, direction, % change, current price):
+{price_data_text}
+
+Return ONLY valid JSON, with no markdown formatting, no code fences, no extra text.
+The JSON must have exactly this shape:
+{{
+  "summary": "2-3 sentence plain-English summary of the overall market trend today",
+  "top_movers": ["product name 1", "product name 2", "product name 3"]
+}}
+"""
+
+        # ------------------------------------------------
+        # STEP 4: CALL GEMINI
+        # ------------------------------------------------
+
+        gemini_api_key = os.environ["GEMINI_API_KEY"]
+
+        response = requests.post(
+            f"{GEMINI_URL}?key={gemini_api_key}",
+            json={
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            },
+            timeout=30,  # AI calls are slower than DB queries -- generous timeout
+        )
+
+        print("Gemini status:", response.status_code, flush=True)
+
+        response.raise_for_status()
+
+        gemini_data = response.json()
+
+        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        print("Gemini raw response:", raw_text, flush=True)
+
+        # ------------------------------------------------
+        # STEP 5: CLEAN UP THE RESPONSE
+        # ------------------------------------------------
+        # Gemini (like most LLMs) often wraps JSON in markdown
+        # code fences even when told not to. Strip them defensively.
+
+        cleaned_text = raw_text.strip()
+
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.split("```")[1]
+            if cleaned_text.startswith("json"):
+                cleaned_text = cleaned_text[4:]
+            cleaned_text = cleaned_text.strip()
+
+        # ------------------------------------------------
+        # STEP 6: PARSE THE JSON
+        # ------------------------------------------------
+
+        try:
+            parsed = json.loads(cleaned_text)
+        except json.JSONDecodeError as e:
+            print("JSON PARSE ERROR:", repr(e), flush=True)
+            print("Raw text was:", cleaned_text, flush=True)
+            # Fallback: return the raw text as the summary so the
+            # endpoint doesn't hard-fail just because formatting broke
+            return {
+                "summary": cleaned_text,
+                "top_movers": [],
+                "note": "AI response was not valid JSON, showing raw text",
+            }
+
+        return parsed
+
+    except requests.exceptions.Timeout:
+        print("GEMINI TIMEOUT", flush=True)
+        return {
+            "summary": "Market summary is temporarily unavailable (AI request timed out). Please try again.",
+            "top_movers": [],
+        }
+
+    except requests.exceptions.HTTPError as e:
+        print("GEMINI HTTP ERROR:", repr(e), flush=True)
+        if e.response is not None and e.response.status_code == 429:
+            return {
+                "summary": "Market summary is temporarily unavailable (rate limit reached). Please try again shortly.",
+                "top_movers": [],
+            }
+        return {
+            "summary": "Market summary is temporarily unavailable.",
+            "top_movers": [],
+        }
+
+    except Exception as e:
+        print("MARKET SUMMARY ERROR:", repr(e), flush=True)
+        return {
+            "summary": "Market summary is temporarily unavailable.",
+            "top_movers": [],
+        }
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
