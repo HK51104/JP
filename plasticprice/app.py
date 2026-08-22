@@ -1492,7 +1492,7 @@ def delete_alert(alert_id: int):
 #
 # ============================================================
 
-    GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 
 @app.get("/market-summary")
