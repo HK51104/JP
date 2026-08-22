@@ -288,6 +288,12 @@ export const api = {
       return computeTopMovers(products);
     }),
 
+      /*
+  AI MARKET SUMMARY
+  */
+
+  marketSummary: () =>
+    getJSON("/market-summary"),
   /*
   CATEGORIES
   */
