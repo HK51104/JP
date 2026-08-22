@@ -1492,7 +1492,7 @@ def delete_alert(alert_id: int):
 #
 # ============================================================
 
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 
 @app.get("/market-summary")
@@ -1574,7 +1574,11 @@ The JSON must have exactly this shape:
         gemini_api_key = os.environ["GEMINI_API_KEY"]
 
         response = requests.post(
-            f"{GEMINI_URL}?key={gemini_api_key}",
+            GEMINI_URL,
+            headers={
+                "x-goog-api-key": gemini_api_key,
+                "Content-Type": "application/json",
+            },
             json={
                 "contents": [
                     {
