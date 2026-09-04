@@ -1,3 +1,4 @@
+import re
 import json
 import os
 from typing import Optional
@@ -1865,3 +1866,309 @@ Return ONLY valid JSON, no markdown, no code fences, in exactly this shape:
             cursor.close()
         if conn:
             conn.close()
+            
+# ============================================================
+# ADD THIS TO plasticprice/app.py
+# ============================================================
+
+
+
+
+# ------------------------------------------------
+# SQL SAFETY VALIDATION
+# ------------------------------------------------
+# This is the most important part of this feature.
+# We NEVER run AI-generated SQL blindly. We only allow
+# read-only SELECT queries against known tables.
+
+ALLOWED_TABLES = {"products", "price_history", "categories", "alerts"}
+
+FORBIDDEN_KEYWORDS = [
+    "insert", "update", "delete", "drop", "alter", "truncate",
+    "create", "grant", "revoke", "exec", "execute", "--", ";--",
+    "pg_", "information_schema", "into outfile",
+]
+
+
+def validate_sql(sql: str) -> tuple[bool, str]:
+    """
+    Returns (is_safe, reason_if_not).
+    Only allows single, simple, read-only SELECT statements.
+    """
+
+    cleaned = sql.strip().rstrip(";").strip()
+
+    # Must start with SELECT
+    if not cleaned.lower().startswith("select"):
+        return False, "Query must be a SELECT statement"
+
+    # Must not contain multiple statements
+    if ";" in cleaned:
+        return False, "Multiple statements are not allowed"
+
+    lower_sql = cleaned.lower()
+
+    # Block dangerous keywords
+    for keyword in FORBIDDEN_KEYWORDS:
+        if keyword in lower_sql:
+            return False, f"Forbidden keyword detected: {keyword}"
+
+    # Extract table names mentioned after FROM / JOIN
+    mentioned_tables = re.findall(
+        r"(?:from|join)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+        lower_sql,
+    )
+
+    if not mentioned_tables:
+        return False, "Could not identify any tables in the query"
+
+    for table in mentioned_tables:
+        if table not in ALLOWED_TABLES:
+            return False, f"Query references disallowed table: {table}"
+
+    return True, ""
+
+
+@app.post("/ask")
+def ask_database(question: dict):
+
+    user_question = question.get("question", "").strip()
+
+    if not user_question:
+        return {"detail": "question is required"}
+
+    print("====================================", flush=True)
+    print("ASK DATABASE:", user_question, flush=True)
+    print("====================================", flush=True)
+
+    conn = None
+    cursor = None
+
+    try:
+        # ------------------------------------------------
+        # STEP 1: ASK GEMINI TO GENERATE SQL
+        # ------------------------------------------------
+        # We give it the exact schema so it doesn't guess
+        # column names -- this dramatically reduces errors.
+
+        schema_description = """
+Tables available (READ ONLY, SELECT queries only):
+
+products (
+    id integer,
+    product_name text,
+    product_grade text,
+    current_price numeric,
+    previous_price numeric,
+    price_change numeric,
+    change_pct numeric,
+    last_updated timestamp,
+    category_id integer,
+    api_id integer
+)
+
+price_history (
+    id integer,
+    product_id integer,
+    price numeric,
+    recorded_at timestamp
+)
+
+categories (
+    id integer,
+    category_name text,
+    category_description text
+)
+"""
+
+        sql_prompt = f"""You are a PostgreSQL expert. Given this schema:
+
+{schema_description}
+
+Write a single, simple, READ-ONLY SELECT SQL query to answer this question:
+"{user_question}"
+
+Rules:
+- ONLY a SELECT statement, nothing else
+- Do NOT use semicolons
+- Do NOT reference any tables other than products, price_history, categories
+- Use JOIN if you need data from multiple tables
+- Keep it simple -- avoid subqueries unless necessary
+
+Return ONLY valid JSON, no markdown, no code fences, in exactly this shape:
+{{
+  "sql": "SELECT ..."
+}}
+"""
+
+        gemini_api_key = os.environ["GEMINI_API_KEY"]
+
+        sql_response = requests.post(
+            GEMINI_URL,
+            headers={
+                "x-goog-api-key": gemini_api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "contents": [
+                    {"parts": [{"text": sql_prompt}]}
+                ]
+            },
+            timeout=55,
+        )
+
+        sql_response.raise_for_status()
+
+        sql_gemini_data = sql_response.json()
+        sql_raw_text = sql_gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        cleaned_sql_text = sql_raw_text.strip()
+        if cleaned_sql_text.startswith("```"):
+            cleaned_sql_text = cleaned_sql_text.split("```")[1]
+            if cleaned_sql_text.startswith("json"):
+                cleaned_sql_text = cleaned_sql_text[4:]
+            cleaned_sql_text = cleaned_sql_text.strip()
+
+        try:
+            sql_parsed = json.loads(cleaned_sql_text)
+            generated_sql = sql_parsed.get("sql", "").strip()
+        except json.JSONDecodeError:
+            return {
+                "answer": "Could not understand how to query the database for that question.",
+                "sql": None,
+            }
+
+        print("GENERATED SQL:", generated_sql, flush=True)
+
+        # ------------------------------------------------
+        # STEP 2: VALIDATE THE SQL BEFORE RUNNING IT
+        # ------------------------------------------------
+        # CRITICAL SAFETY STEP -- never trust AI-generated
+        # SQL without validation. This is the most important
+        # part of this entire feature.
+
+        is_safe, reason = validate_sql(generated_sql)
+
+        if not is_safe:
+            print("SQL REJECTED:", reason, flush=True)
+            return {
+                "answer": f"I couldn't safely answer that question ({reason}). Please try rephrasing.",
+                "sql": generated_sql,
+                "blocked": True,
+            }
+
+        # ------------------------------------------------
+        # STEP 3: RUN THE VALIDATED, READ-ONLY QUERY
+        # ------------------------------------------------
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Extra safety net: set a statement timeout so a
+        # slow/expensive query can't hang the connection
+        cursor.execute("SET statement_timeout = '5s'")
+
+        cursor.execute(generated_sql)
+
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+
+        # Limit rows returned to keep the prompt small
+        rows = rows[:20]
+
+        results = [
+            dict(zip(columns, row))
+            for row in rows
+        ]
+
+        # Convert any non-JSON-serializable types (Decimal, datetime)
+        results_serializable = json.loads(
+            json.dumps(results, default=str)
+        )
+
+        print("QUERY RESULTS:", results_serializable, flush=True)
+
+        # ------------------------------------------------
+        # STEP 4: HAVE GEMINI EXPLAIN THE RESULTS
+        # ------------------------------------------------
+
+        explain_prompt = f"""The user asked: "{user_question}"
+
+The database returned these REAL results (do not invent any other data):
+{json.dumps(results_serializable, indent=2)}
+
+Write a 1-3 sentence plain-English answer to the user's question, based ONLY on this data.
+If the results are empty, say so honestly.
+
+Return ONLY valid JSON, no markdown, in exactly this shape:
+{{
+  "answer": "your answer here"
+}}
+"""
+
+        explain_response = requests.post(
+            GEMINI_URL,
+            headers={
+                "x-goog-api-key": gemini_api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "contents": [
+                    {"parts": [{"text": explain_prompt}]}
+                ]
+            },
+            timeout=55,
+        )
+
+        explain_response.raise_for_status()
+
+        explain_data = explain_response.json()
+        explain_raw = explain_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        cleaned_explain = explain_raw.strip()
+        if cleaned_explain.startswith("```"):
+            cleaned_explain = cleaned_explain.split("```")[1]
+            if cleaned_explain.startswith("json"):
+                cleaned_explain = cleaned_explain[4:]
+            cleaned_explain = cleaned_explain.strip()
+
+        try:
+            explain_parsed = json.loads(cleaned_explain)
+            final_answer = explain_parsed.get("answer", cleaned_explain)
+        except json.JSONDecodeError:
+            final_answer = cleaned_explain
+
+        return {
+            "answer": final_answer,
+            "sql": generated_sql,
+            "results": results_serializable,
+            "blocked": False,
+        }
+
+    except requests.exceptions.Timeout:
+        return {
+            "answer": "This is taking too long to process. Please try again.",
+            "sql": None,
+        }
+
+    except psycopg2.Error as e:
+        print("SQL EXECUTION ERROR:", repr(e), flush=True)
+        if conn:
+            conn.rollback()
+        return {
+            "answer": "I generated a query but it couldn't run successfully. Please try rephrasing your question.",
+            "sql": generated_sql if "generated_sql" in dir() else None,
+        }
+
+    except Exception as e:
+        print("ASK DATABASE ERROR:", repr(e), flush=True)
+        return {
+            "answer": "Something went wrong answering that question. Please try again.",
+            "sql": None,
+        }
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()            
