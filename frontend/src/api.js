@@ -295,8 +295,17 @@ export const api = {
   marketSummary: () =>
     getJSON("/market-summary"),
 
-    marketAnalyst: (category) =>
-    getJSON(`/market-analyst?category=${encodeURIComponent(category)}`),
+      marketAnalyst: (category) =>
+    fetchWithTimeout(
+      `${API_BASE}/market-analyst?category=${encodeURIComponent(category)}`,
+      {},
+      40000  // 40 seconds - AI + DB queries can be slow, especially on cold start
+    ).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      return response.json();
+    }),
   /*
   CATEGORIES
   */
