@@ -610,3 +610,90 @@ export function getRelativeTime(value) {
 
   return `${days}d ago`;
 }
+
+// ============================================================
+// ADD THIS TO api.js (or a new file like utils/csvExport.js)
+// ============================================================
+
+export function exportProductsToCSV(products) {
+  if (!products || products.length === 0) {
+    alert("No products to export.");
+    return;
+  }
+
+  const headers = [
+    "Product Name",
+    "Grade",
+    "Category",
+    "Current Price",
+    "Previous Price",
+    "Change %",
+    "Last Updated",
+  ];
+
+  const rows = products.map((p) => [
+    p.name,
+    p.grade,
+    p.category,
+    p.price,
+    p.previousPrice ?? "",
+    p.changePct,
+    p.lastUpdated ?? "",
+  ]);
+
+  // Escape any values containing commas or quotes
+  const escapeCsvValue = (value) => {
+    const stringValue = String(value ?? "");
+    if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  const csvContent = [
+    headers.map(escapeCsvValue).join(","),
+    ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `polymer-prices-${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+
+// ============================================================
+// EXAMPLE BUTTON COMPONENT (use in your Products page)
+// ============================================================
+// import { Download } from "lucide-react";
+// import { exportProductsToCSV } from "../api"; // or wherever you put it
+//
+// <button
+//   onClick={() => exportProductsToCSV(products)}
+//   className="
+//     flex
+//     items-center
+//     gap-2
+//     px-3
+//     sm:px-4
+//     py-2
+//     border
+//     border-border
+//     rounded-md
+//     text-xs
+//     sm:text-sm
+//     font-display
+//     hover:border-primary
+//     hover:text-primary
+//     transition-colors
+//   "
+// >
+//   <Download className="size-4" />
+//   Export CSV
+// </button>
