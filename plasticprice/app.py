@@ -1191,6 +1191,96 @@ def sync_prices():
                     f"({change_pct}%)",
                     flush=True,
                 )
+                
+                # ============================================================
+# ADD THIS INSIDE app.py's sync_prices() function
+# ============================================================
+#
+# WHERE TO ADD IT:
+# Right after the "COMMIT THIS PRODUCT" block (after conn.commit()
+# and the "Updated product..." print statement), inside the same
+# try block, before the except.
+#
+# It uses variables that already exist at that point in the loop:
+#   db_id       -- the product's database id
+#   new_price   -- the new current price
+#   change_pct  -- the % change just calculated
+#
+# ============================================================
+
+                # ----------------------------------------
+                # CHECK PRICE ALERTS
+                # ----------------------------------------
+                # See if this price update triggers any active,
+                # not-yet-triggered alerts for this product.
+
+                try:
+                    cursor.execute(
+                        """
+                        SELECT
+                            id,
+                            alert_type,
+                            target_value
+                        FROM alerts
+                        WHERE product_id = %s
+                        AND is_active = TRUE
+                        AND triggered = FALSE
+                        """,
+                        (db_id,),
+                    )
+
+                    matching_alerts = cursor.fetchall()
+
+                    for alert_id, alert_type, target_value in matching_alerts:
+
+                        target_value = float(target_value)
+                        is_triggered = False
+
+                        if alert_type == "price_above" and new_price >= target_value:
+                            is_triggered = True
+
+                        elif alert_type == "price_below" and new_price <= target_value:
+                            is_triggered = True
+
+                        elif alert_type == "change_above" and change_pct >= target_value:
+                            is_triggered = True
+
+                        elif alert_type == "change_below" and change_pct <= target_value:
+                            is_triggered = True
+
+                        if is_triggered:
+                            cursor.execute(
+                                """
+                                UPDATE alerts
+                                SET
+                                    triggered = TRUE,
+                                    triggered_at = NOW()
+                                WHERE id = %s
+                                """,
+                                (alert_id,),
+                            )
+
+                            conn.commit()
+
+                            print(
+                                f"ALERT TRIGGERED: alert_id={alert_id} "
+                                f"product_id={db_id} type={alert_type} "
+                                f"target={target_value} actual_price={new_price} "
+                                f"actual_change={change_pct}",
+                                flush=True,
+                            )
+
+                except Exception as alert_error:
+                    # An alert-checking failure should never break
+                    # the price sync itself -- log and move on.
+                    conn.rollback()
+                    print(
+                        "ALERT CHECK ERROR:",
+                        repr(alert_error),
+                        "for product:",
+                        db_id,
+                        flush=True,
+                    )
 
             except Exception as product_error:
 
