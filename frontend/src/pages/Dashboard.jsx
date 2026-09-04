@@ -10,10 +10,12 @@ Responsibilities:
 4. Calculate top gainers and losers.
 5. Show market statistics.
 6. Show AI-generated market summary.
-7. Show browse-by-category links.
-8. Remain fully responsive on mobile, tablet and desktop.
+7. Show interactive AI market analyst (per-category).
+8. Show browse-by-category links.
+9. Remain fully responsive on mobile, tablet and desktop.
 */
 
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -23,6 +25,7 @@ import {
   Layers,
   Activity,
   Clock,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -119,6 +122,25 @@ export default function Dashboard() {
     error: summaryError,
     loading: summaryLoading,
   } = useApi(() => api.marketSummary(), []);
+
+  const [analystCategory, setAnalystCategory] = useState("PP");
+  const [analystResult, setAnalystResult] = useState(null);
+  const [analystLoading, setAnalystLoading] = useState(false);
+  const [analystError, setAnalystError] = useState(null);
+
+  const runAnalyst = async (category) => {
+    setAnalystLoading(true);
+    setAnalystError(null);
+
+    try {
+      const result = await api.marketAnalyst(category);
+      setAnalystResult(result);
+    } catch (err) {
+      setAnalystError(err);
+    } finally {
+      setAnalystLoading(false);
+    }
+  };
 
 
   if (productsLoading || moversLoading) {
@@ -278,6 +300,144 @@ export default function Dashboard() {
             )}
         </div>
       )}
+
+
+      {/* =====================================================
+          AI MARKET ANALYST
+      ====================================================== */}
+
+      <div
+        className="
+          mb-6
+          sm:mb-8
+          bg-card
+          border
+          border-border
+          rounded-lg
+          p-4
+          sm:p-5
+        "
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="size-4 text-primary" />
+          <span className="text-[10px] font-display tracking-widest text-muted-foreground">
+            AI MARKET ANALYST
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {["PP", "HD", "LL", "PVC", "EVA"].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => {
+                setAnalystCategory(cat);
+                runAnalyst(cat);
+              }}
+              className={`
+                px-3
+                sm:px-4
+                py-1.5
+                border
+                rounded-md
+                text-xs
+                sm:text-sm
+                font-display
+                transition-colors
+                ${
+                  analystCategory === cat && analystResult
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-border hover:border-primary hover:text-primary"
+                }
+              `}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {analystLoading && (
+          <p className="text-sm text-muted-foreground">
+            Analyzing {analystCategory} market data…
+          </p>
+        )}
+
+        {analystError && (
+          <p className="text-sm text-down">
+            Could not load analysis. Please try again.
+          </p>
+        )}
+
+        {!analystLoading && !analystError && analystResult && (
+          <>
+            <p className="text-sm sm:text-base text-foreground leading-relaxed mb-3">
+              {analystResult.answer}
+            </p>
+
+            {analystResult.stats &&
+              Object.keys(analystResult.stats).length > 0 && (
+                <div
+                  className="
+                    grid
+                    grid-cols-2
+                    sm:grid-cols-4
+                    gap-2
+                    text-xs
+                  "
+                >
+                  {analystResult.stats.current_avg_price != null && (
+                    <div className="bg-accent/30 rounded p-2">
+                      <div className="text-muted-foreground text-[10px]">
+                        AVG PRICE
+                      </div>
+                      <div className="font-display font-semibold">
+                        ₹{analystResult.stats.current_avg_price}
+                      </div>
+                    </div>
+                  )}
+
+                  {analystResult.stats.change_30d_pct != null && (
+                    <div className="bg-accent/30 rounded p-2">
+                      <div className="text-muted-foreground text-[10px]">
+                        30D CHANGE
+                      </div>
+                      <div className="font-display font-semibold">
+                        {analystResult.stats.change_30d_pct}%
+                      </div>
+                    </div>
+                  )}
+
+                  {analystResult.stats.min_price_30d != null && (
+                    <div className="bg-accent/30 rounded p-2">
+                      <div className="text-muted-foreground text-[10px]">
+                        30D LOW
+                      </div>
+                      <div className="font-display font-semibold">
+                        ₹{analystResult.stats.min_price_30d}
+                      </div>
+                    </div>
+                  )}
+
+                  {analystResult.stats.max_price_30d != null && (
+                    <div className="bg-accent/30 rounded p-2">
+                      <div className="text-muted-foreground text-[10px]">
+                        30D HIGH
+                      </div>
+                      <div className="font-display font-semibold">
+                        ₹{analystResult.stats.max_price_30d}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+          </>
+        )}
+
+        {!analystLoading && !analystError && !analystResult && (
+          <p className="text-sm text-muted-foreground">
+            Select a category above to get an AI-powered analysis grounded in real price data.
+          </p>
+        )}
+      </div>
 
 
       {/* =====================================================

@@ -294,6 +294,9 @@ export const api = {
 
   marketSummary: () =>
     getJSON("/market-summary"),
+
+    marketAnalyst: (category) =>
+    getJSON(`/market-analyst?category=${encodeURIComponent(category)}`),
   /*
   CATEGORIES
   */
