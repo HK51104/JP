@@ -1664,3 +1664,204 @@ The JSON must have exactly this shape:
             cursor.close()
         if conn:
             conn.close()
+            
+            # ============================================================
+# ADD THIS TO plasticprice/app.py
+# ============================================================
+
+@app.get("/market-analyst")
+def market_analyst(category: str = "PP"):
+
+    print("====================================", flush=True)
+    print("MARKET ANALYST REQUEST:", category, flush=True)
+    print("====================================", flush=True)
+
+    conn = None
+    cursor = None
+
+    try:
+        # ------------------------------------------------
+        # STEP 1: GET REAL STATS FROM THE DATABASE
+        # ------------------------------------------------
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Current average price and change for this category
+        cursor.execute("""
+            SELECT
+                AVG(current_price),
+                AVG(change_pct),
+                COUNT(*)
+            FROM products
+            WHERE category_id = (
+                SELECT id FROM categories WHERE category_name = %s LIMIT 1
+            )
+        """, (category,))
+
+        current_row = cursor.fetchone()
+
+        if not current_row or current_row[0] is None:
+            return {
+                "answer": f"No data available for category '{category}'.",
+                "stats": {},
+            }
+
+        current_avg, current_avg_change, product_count = current_row
+
+        # Historical stats over the last 30 days
+        cursor.execute("""
+            SELECT
+                MIN(ph.price),
+                MAX(ph.price),
+                AVG(ph.price)
+            FROM price_history ph
+            JOIN products p ON p.id = ph.product_id
+            WHERE p.category_id = (
+                SELECT id FROM categories WHERE category_name = %s LIMIT 1
+            )
+            AND ph.recorded_at >= NOW() - INTERVAL '30 days'
+        """, (category,))
+
+        history_row = cursor.fetchone()
+
+        min_price, max_price, avg_price_30d = history_row if history_row else (None, None, None)
+
+        # Price 30 days ago specifically (oldest record in that window)
+        cursor.execute("""
+            SELECT ph.price
+            FROM price_history ph
+            JOIN products p ON p.id = ph.product_id
+            WHERE p.category_id = (
+                SELECT id FROM categories WHERE category_name = %s LIMIT 1
+            )
+            AND ph.recorded_at >= NOW() - INTERVAL '30 days'
+            ORDER BY ph.recorded_at ASC
+            LIMIT 1
+        """, (category,))
+
+        oldest_row = cursor.fetchone()
+        price_30d_ago = oldest_row[0] if oldest_row else None
+
+        # ------------------------------------------------
+        # STEP 2: CALCULATE 30-DAY CHANGE
+        # ------------------------------------------------
+
+        change_30d_pct = None
+        if price_30d_ago and current_avg and price_30d_ago != 0:
+            change_30d_pct = round(
+                ((float(current_avg) - float(price_30d_ago)) / float(price_30d_ago)) * 100,
+                2,
+            )
+
+        stats = {
+            "category": category,
+            "product_count": product_count,
+            "current_avg_price": round(float(current_avg), 2) if current_avg else None,
+            "today_avg_change_pct": round(float(current_avg_change), 2) if current_avg_change else None,
+            "price_30_days_ago": round(float(price_30d_ago), 2) if price_30d_ago else None,
+            "change_30d_pct": change_30d_pct,
+            "min_price_30d": round(float(min_price), 2) if min_price else None,
+            "max_price_30d": round(float(max_price), 2) if max_price else None,
+            "avg_price_30d": round(float(avg_price_30d), 2) if avg_price_30d else None,
+        }
+
+        print("STATS:", stats, flush=True)
+
+        # ------------------------------------------------
+        # STEP 3: BUILD THE PROMPT -- GROUNDED IN REAL NUMBERS
+        # ------------------------------------------------
+        # IMPORTANT: The LLM only explains numbers we calculated.
+        # It never invents its own numbers.
+
+        prompt = f"""You are a market analyst explaining polymer price data to a trader.
+
+Here is the REAL calculated data for category "{category}" (do not invent any other numbers, only use these):
+{json.dumps(stats, indent=2)}
+
+Write a 2-4 sentence plain-English explanation of what has happened to prices in this category.
+Be factual and grounded only in the numbers given. Do not speculate about external causes
+(e.g. news events) since you have no evidence of them -- only describe the price movement itself.
+
+Return ONLY valid JSON, no markdown, no code fences, in exactly this shape:
+{{
+  "answer": "your explanation here"
+}}
+"""
+
+        # ------------------------------------------------
+        # STEP 4: CALL GEMINI
+        # ------------------------------------------------
+
+        gemini_api_key = os.environ["GEMINI_API_KEY"]
+
+        response = requests.post(
+            GEMINI_URL,
+            headers={
+                "x-goog-api-key": gemini_api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            },
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        gemini_data = response.json()
+        raw_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+
+        # ------------------------------------------------
+        # STEP 5: CLEAN AND PARSE
+        # ------------------------------------------------
+
+        cleaned_text = raw_text.strip()
+
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.split("```")[1]
+            if cleaned_text.startswith("json"):
+                cleaned_text = cleaned_text[4:]
+            cleaned_text = cleaned_text.strip()
+
+        try:
+            parsed = json.loads(cleaned_text)
+        except json.JSONDecodeError:
+            parsed = {"answer": cleaned_text}
+
+        # ------------------------------------------------
+        # STEP 6: RETURN BOTH THE ANSWER AND THE RAW STATS
+        # ------------------------------------------------
+        # Showing the raw stats alongside the AI answer is
+        # important -- it proves the answer is grounded in
+        # real data, not hallucinated. Good for demos/interviews.
+
+        return {
+            "answer": parsed.get("answer", cleaned_text),
+            "stats": stats,
+        }
+
+    except requests.exceptions.Timeout:
+        return {
+            "answer": "Analysis temporarily unavailable (request timed out).",
+            "stats": {},
+        }
+
+    except Exception as e:
+        print("MARKET ANALYST ERROR:", repr(e), flush=True)
+        return {
+            "answer": "Analysis temporarily unavailable.",
+            "stats": {},
+        }
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
