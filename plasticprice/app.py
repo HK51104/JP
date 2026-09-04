@@ -1810,7 +1810,7 @@ Return ONLY valid JSON, no markdown, no code fences, in exactly this shape:
                     }
                 ]
             },
-            timeout=30,
+            timeout=55,
         )
 
         response.raise_for_status()
