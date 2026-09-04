@@ -6,9 +6,10 @@ import {
   Search,
   SlidersHorizontal,
   X,
+  Download,
 } from "lucide-react";
 
-import { api, useApi, formatPrice } from "../api";
+import { api, useApi, formatPrice, exportProductsToCSV } from "../api";
 import ApiError from "../components/APIerror";
 
 
@@ -385,16 +386,45 @@ export default function Products() {
           HEADER
       ---------------------------------------- */}
 
-      <div>
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
 
-        <h1 className="text-2xl font-bold tracking-tight">
-          Products
-        </h1>
+        <div>
 
-        <p className="text-sm text-muted-foreground mt-1">
-          Polymer grades and indicative
-          market prices.
-        </p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Products
+          </h1>
+
+          <p className="text-sm text-muted-foreground mt-1">
+            Polymer grades and indicative
+            market prices.
+          </p>
+
+        </div>
+
+        <button
+          onClick={() => exportProductsToCSV(sorted)}
+          className="
+            flex
+            items-center
+            gap-2
+            px-3
+            sm:px-4
+            py-2
+            border
+            border-border
+            rounded-md
+            text-xs
+            sm:text-sm
+            font-display
+            hover:border-primary
+            hover:text-primary
+            transition-colors
+            shrink-0
+          "
+        >
+          <Download className="size-4" />
+          Export CSV
+        </button>
 
       </div>
 
