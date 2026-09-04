@@ -1906,12 +1906,18 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     if ";" in cleaned:
         return False, "Multiple statements are not allowed"
 
-    lower_sql = cleaned.lower()
+        lower_sql = cleaned.lower()
 
-    # Block dangerous keywords
+    # Block dangerous keywords (as whole words only, to avoid false
+    # positives like "last_updated" matching "update")
     for keyword in FORBIDDEN_KEYWORDS:
-        if keyword in lower_sql:
-            return False, f"Forbidden keyword detected: {keyword}"
+        if keyword.isalpha():
+            pattern = r"\b" + re.escape(keyword) + r"\b"
+            if re.search(pattern, lower_sql):
+                return False, f"Forbidden keyword detected: {keyword}"
+        else:
+            if keyword in lower_sql:
+                return False, f"Forbidden keyword detected: {keyword}"
 
     # Extract table names mentioned after FROM / JOIN
     mentioned_tables = re.findall(
