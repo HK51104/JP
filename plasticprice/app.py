@@ -1906,7 +1906,7 @@ def validate_sql(sql: str) -> tuple[bool, str]:
     if ";" in cleaned:
         return False, "Multiple statements are not allowed"
 
-        lower_sql = cleaned.lower()
+    lower_sql = cleaned.lower()
 
     # Block dangerous keywords (as whole words only, to avoid false
     # positives like "last_updated" matching "update")
