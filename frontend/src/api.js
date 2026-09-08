@@ -316,6 +316,19 @@ export const api = {
         ? data
         : []
     ),
+
+      askDatabase: (question) =>
+    fetch(`${API_BASE}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    }).then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail || "Failed to get answer");
+      }
+      return data;
+    }),
 };
 
 /*
@@ -698,16 +711,3 @@ export function exportProductsToCSV(products) {
 //   Export CSV
 // </button>
 
-
-  askDatabase: (question) =>
-    fetch(`${API_BASE}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-    }).then(async (response) => {
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.detail || "Failed to get answer");
-      }
-      return data;
-    })
