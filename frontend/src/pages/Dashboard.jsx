@@ -26,6 +26,8 @@ import {
   Activity,
   Clock,
   Sparkles,
+  MessageCircleQuestion,
+  Code2,
 } from "lucide-react";
 
 import {
@@ -139,6 +141,33 @@ export default function Dashboard() {
       setAnalystError(err);
     } finally {
       setAnalystLoading(false);
+    }
+  };
+
+  const [askQuestion, setAskQuestion] = useState("");
+  const [askResult, setAskResult] = useState(null);
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState(null);
+  const [showSql, setShowSql] = useState(false);
+
+  const runAsk = async (event) => {
+    event.preventDefault();
+
+    if (!askQuestion.trim()) {
+      return;
+    }
+
+    setAskLoading(true);
+    setAskError(null);
+    setShowSql(false);
+
+    try {
+      const result = await api.askDatabase(askQuestion.trim());
+      setAskResult(result);
+    } catch (err) {
+      setAskError(err);
+    } finally {
+      setAskLoading(false);
     }
   };
 
@@ -435,6 +464,133 @@ export default function Dashboard() {
         {!analystLoading && !analystError && !analystResult && (
           <p className="text-sm text-muted-foreground">
             Select a category above to get an AI-powered analysis grounded in real price data.
+          </p>
+        )}
+      </div>
+
+
+      {/* =====================================================
+          ASK THE DATABASE (NATURAL LANGUAGE -> SQL)
+      ====================================================== */}
+
+      <div
+        className="
+          mb-6
+          sm:mb-8
+          bg-card
+          border
+          border-border
+          rounded-lg
+          p-4
+          sm:p-5
+        "
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <MessageCircleQuestion className="size-4 text-primary" />
+          <span className="text-[10px] font-display tracking-widest text-muted-foreground">
+            ASK THE DATABASE
+          </span>
+        </div>
+
+        <form onSubmit={runAsk} className="flex flex-col sm:flex-row gap-2 mb-3">
+          <input
+            value={askQuestion}
+            onChange={(e) => setAskQuestion(e.target.value)}
+            placeholder="e.g. Which PP grade had the biggest price increase today?"
+            className="
+              flex-1
+              h-10
+              px-3
+              rounded-md
+              border
+              border-border
+              bg-background
+              text-sm
+              outline-none
+              focus:border-primary
+              transition-colors
+            "
+          />
+
+          <button
+            type="submit"
+            disabled={askLoading}
+            className="
+              h-10
+              px-4
+              rounded-md
+              bg-primary
+              text-primary-foreground
+              text-sm
+              font-display
+              hover:opacity-90
+              transition-opacity
+              disabled:opacity-50
+              shrink-0
+            "
+          >
+            {askLoading ? "Thinking…" : "Ask"}
+          </button>
+        </form>
+
+        {askError && (
+          <p className="text-sm text-down">
+            Could not get an answer. Please try again.
+          </p>
+        )}
+
+        {!askLoading && !askError && askResult && (
+          <div>
+            <p className="text-sm sm:text-base text-foreground leading-relaxed mb-2">
+              {askResult.answer}
+            </p>
+
+            {askResult.sql && (
+              <>
+                <button
+                  onClick={() => setShowSql(!showSql)}
+                  className="
+                    flex
+                    items-center
+                    gap-1.5
+                    text-[11px]
+                    text-muted-foreground
+                    hover:text-primary
+                    transition-colors
+                  "
+                >
+                  <Code2 className="size-3.5" />
+                  {showSql ? "Hide" : "Show"} generated SQL
+                </button>
+
+                {showSql && (
+                  <pre
+                    className="
+                      mt-2
+                      p-3
+                      bg-accent/30
+                      border
+                      border-border
+                      rounded-md
+                      text-[11px]
+                      font-mono
+                      overflow-x-auto
+                      whitespace-pre-wrap
+                      break-words
+                    "
+                  >
+                    {askResult.sql}
+                  </pre>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {!askLoading && !askError && !askResult && (
+          <p className="text-sm text-muted-foreground">
+            Ask a question about the price data in plain English — the AI will
+            write and run a query to answer it.
           </p>
         )}
       </div>
