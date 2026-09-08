@@ -2056,7 +2056,6 @@ products (
     product_grade text,
     current_price numeric,
     previous_price numeric,
-    price_change numeric,
     change_pct numeric,
     last_updated timestamp,
     category_id integer,
