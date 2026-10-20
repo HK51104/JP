@@ -9,13 +9,11 @@ Responsibilities:
 3. Calculate category averages.
 4. Calculate top gainers and losers.
 5. Show market statistics.
-6. Show AI-generated market summary.
-7. Show interactive AI market analyst (per-category).
-8. Show browse-by-category links.
-9. Remain fully responsive on mobile, tablet and desktop.
+6. Show the single combined AI assistant card.
+7. Show browse-by-category links.
+8. Remain fully responsive on mobile, tablet and desktop.
 */
 
-import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -25,9 +23,6 @@ import {
   Layers,
   Activity,
   Clock,
-  Sparkles,
-  MessageCircleQuestion,
-  Code2,
 } from "lucide-react";
 
 import {
@@ -37,6 +32,7 @@ import {
 } from "../api";
 
 import ApiError from "../components/APIerror";
+import AiAssistantCard from "../components/AiAssistantCard";
 
 
 function Stat({ icon: Icon, label, value, sub, to }) {
@@ -118,58 +114,6 @@ export default function Dashboard() {
     error: moversError,
     loading: moversLoading,
   } = useApi(() => api.topMovers(), []);
-
-  const {
-    data: summaryData,
-    error: summaryError,
-    loading: summaryLoading,
-  } = useApi(() => api.marketSummary(), []);
-
-  const [analystCategory, setAnalystCategory] = useState("PP");
-  const [analystResult, setAnalystResult] = useState(null);
-  const [analystLoading, setAnalystLoading] = useState(false);
-  const [analystError, setAnalystError] = useState(null);
-
-  const runAnalyst = async (category) => {
-    setAnalystLoading(true);
-    setAnalystError(null);
-
-    try {
-      const result = await api.marketAnalyst(category);
-      setAnalystResult(result);
-    } catch (err) {
-      setAnalystError(err);
-    } finally {
-      setAnalystLoading(false);
-    }
-  };
-
-  const [askQuestion, setAskQuestion] = useState("");
-  const [askResult, setAskResult] = useState(null);
-  const [askLoading, setAskLoading] = useState(false);
-  const [askError, setAskError] = useState(null);
-  const [showSql, setShowSql] = useState(false);
-
-  const runAsk = async (event) => {
-    event.preventDefault();
-
-    if (!askQuestion.trim()) {
-      return;
-    }
-
-    setAskLoading(true);
-    setAskError(null);
-    setShowSql(false);
-
-    try {
-      const result = await api.askDatabase(askQuestion.trim());
-      setAskResult(result);
-    } catch (err) {
-      setAskError(err);
-    } finally {
-      setAskLoading(false);
-    }
-  };
 
 
   if (productsLoading || moversLoading) {
@@ -277,323 +221,10 @@ export default function Dashboard() {
 
 
       {/* =====================================================
-          AI MARKET SUMMARY
+          AI ASSISTANT (summary + analyst + ask, one card)
       ====================================================== */}
 
-      {!summaryLoading && !summaryError && summaryData?.summary && (
-        <div
-          className="
-            mb-6
-            sm:mb-8
-            bg-card
-            border
-            border-border
-            rounded-lg
-            p-4
-            sm:p-5
-          "
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Activity className="size-4 text-primary" />
-            <span className="text-[10px] font-display tracking-widest text-muted-foreground">
-              AI MARKET SUMMARY
-            </span>
-          </div>
-
-          <p className="text-sm sm:text-base text-foreground leading-relaxed">
-            {summaryData.summary}
-          </p>
-
-          {Array.isArray(summaryData.top_movers) &&
-            summaryData.top_movers.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {summaryData.top_movers.map((mover, i) => (
-                  <span
-                    key={i}
-                    className="
-                      px-2.5
-                      py-1
-                      text-[11px]
-                      font-display
-                      bg-accent/40
-                      border
-                      border-border
-                      rounded-md
-                      text-muted-foreground
-                    "
-                  >
-                    {mover}
-                  </span>
-                ))}
-              </div>
-            )}
-        </div>
-      )}
-
-
-      {/* =====================================================
-          AI MARKET ANALYST
-      ====================================================== */}
-
-      <div
-        className="
-          mb-6
-          sm:mb-8
-          bg-card
-          border
-          border-border
-          rounded-lg
-          p-4
-          sm:p-5
-        "
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="size-4 text-primary" />
-          <span className="text-[10px] font-display tracking-widest text-muted-foreground">
-            AI MARKET ANALYST
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          {["PP", "HD", "LL", "PVC", "EVA"].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                setAnalystCategory(cat);
-                runAnalyst(cat);
-              }}
-              className={`
-                px-3
-                sm:px-4
-                py-1.5
-                border
-                rounded-md
-                text-xs
-                sm:text-sm
-                font-display
-                transition-colors
-                ${
-                  analystCategory === cat && analystResult
-                    ? "border-primary text-primary bg-primary/10"
-                    : "border-border hover:border-primary hover:text-primary"
-                }
-              `}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {analystLoading && (
-          <p className="text-sm text-muted-foreground">
-            Analyzing {analystCategory} market data…
-          </p>
-        )}
-
-        {analystError && (
-          <p className="text-sm text-down">
-            Could not load analysis. Please try again.
-          </p>
-        )}
-
-        {!analystLoading && !analystError && analystResult && (
-          <>
-            <p className="text-sm sm:text-base text-foreground leading-relaxed mb-3">
-              {analystResult.answer}
-            </p>
-
-            {analystResult.stats &&
-              Object.keys(analystResult.stats).length > 0 && (
-                <div
-                  className="
-                    grid
-                    grid-cols-2
-                    sm:grid-cols-4
-                    gap-2
-                    text-xs
-                  "
-                >
-                  {analystResult.stats.current_avg_price != null && (
-                    <div className="bg-accent/30 rounded p-2">
-                      <div className="text-muted-foreground text-[10px]">
-                        AVG PRICE
-                      </div>
-                      <div className="font-display font-semibold">
-                        ₹{analystResult.stats.current_avg_price}
-                      </div>
-                    </div>
-                  )}
-
-                  {analystResult.stats.change_30d_pct != null && (
-                    <div className="bg-accent/30 rounded p-2">
-                      <div className="text-muted-foreground text-[10px]">
-                        30D CHANGE
-                      </div>
-                      <div className="font-display font-semibold">
-                        {analystResult.stats.change_30d_pct}%
-                      </div>
-                    </div>
-                  )}
-
-                  {analystResult.stats.min_price_30d != null && (
-                    <div className="bg-accent/30 rounded p-2">
-                      <div className="text-muted-foreground text-[10px]">
-                        30D LOW
-                      </div>
-                      <div className="font-display font-semibold">
-                        ₹{analystResult.stats.min_price_30d}
-                      </div>
-                    </div>
-                  )}
-
-                  {analystResult.stats.max_price_30d != null && (
-                    <div className="bg-accent/30 rounded p-2">
-                      <div className="text-muted-foreground text-[10px]">
-                        30D HIGH
-                      </div>
-                      <div className="font-display font-semibold">
-                        ₹{analystResult.stats.max_price_30d}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-          </>
-        )}
-
-        {!analystLoading && !analystError && !analystResult && (
-          <p className="text-sm text-muted-foreground">
-            Select a category above to get an AI-powered analysis grounded in real price data.
-          </p>
-        )}
-      </div>
-
-
-      {/* =====================================================
-          ASK THE DATABASE (NATURAL LANGUAGE -> SQL)
-      ====================================================== */}
-
-      <div
-        className="
-          mb-6
-          sm:mb-8
-          bg-card
-          border
-          border-border
-          rounded-lg
-          p-4
-          sm:p-5
-        "
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <MessageCircleQuestion className="size-4 text-primary" />
-          <span className="text-[10px] font-display tracking-widest text-muted-foreground">
-            ASK THE DATABASE
-          </span>
-        </div>
-
-        <form onSubmit={runAsk} className="flex flex-col sm:flex-row gap-2 mb-3">
-          <input
-            value={askQuestion}
-            onChange={(e) => setAskQuestion(e.target.value)}
-            placeholder="e.g. Which PP grade had the biggest price increase today?"
-            className="
-              flex-1
-              h-10
-              px-3
-              rounded-md
-              border
-              border-border
-              bg-background
-              text-sm
-              outline-none
-              focus:border-primary
-              transition-colors
-            "
-          />
-
-          <button
-            type="submit"
-            disabled={askLoading}
-            className="
-              h-10
-              px-4
-              rounded-md
-              bg-primary
-              text-primary-foreground
-              text-sm
-              font-display
-              hover:opacity-90
-              transition-opacity
-              disabled:opacity-50
-              shrink-0
-            "
-          >
-            {askLoading ? "Thinking…" : "Ask"}
-          </button>
-        </form>
-
-        {askError && (
-          <p className="text-sm text-down">
-            Could not get an answer. Please try again.
-          </p>
-        )}
-
-        {!askLoading && !askError && askResult && (
-          <div>
-            <p className="text-sm sm:text-base text-foreground leading-relaxed mb-2">
-              {askResult.answer}
-            </p>
-
-            {askResult.sql && (
-              <>
-                <button
-                  onClick={() => setShowSql(!showSql)}
-                  className="
-                    flex
-                    items-center
-                    gap-1.5
-                    text-[11px]
-                    text-muted-foreground
-                    hover:text-primary
-                    transition-colors
-                  "
-                >
-                  <Code2 className="size-3.5" />
-                  {showSql ? "Hide" : "Show"} generated SQL
-                </button>
-
-                {showSql && (
-                  <pre
-                    className="
-                      mt-2
-                      p-3
-                      bg-accent/30
-                      border
-                      border-border
-                      rounded-md
-                      text-[11px]
-                      font-mono
-                      overflow-x-auto
-                      whitespace-pre-wrap
-                      break-words
-                    "
-                  >
-                    {askResult.sql}
-                  </pre>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {!askLoading && !askError && !askResult && (
-          <p className="text-sm text-muted-foreground">
-            Ask a question about the price data in plain English — the AI will
-            write and run a query to answer it.
-          </p>
-        )}
-      </div>
+      <AiAssistantCard />
 
 
       {/* =====================================================
@@ -640,10 +271,7 @@ export default function Dashboard() {
         <Stat
           icon={Activity}
           label="MARKET TREND"
-          value={`
-            ${avgChange >= 0 ? "+" : ""}
-            ${avgChange.toFixed(2)}%
-          `}
+          value={`${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`}
           sub="Average price change"
         />
 
